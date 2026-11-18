@@ -1,7 +1,6 @@
 package com.obskyra.playroom;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebResourceRequest;
@@ -27,7 +26,6 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 if ("https".equals(uri.getScheme()) && HOST.equals(uri.getHost())) return false;
-                if (request.isForMainFrame() && "https".equals(uri.getScheme())) openBrowser(uri);
                 return true;
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -41,17 +39,8 @@ public class MainActivity extends Activity {
                 catch (IOException e) { return new WebResourceResponse("text/plain", "UTF-8", null); }
             }
         });
-        // External game links use the system browser; no JavaScript bridge is exposed.
-        web.setDownloadListener((url, agent, disposition, mime, length) -> {
-            Uri uri = Uri.parse(url);
-            if ("https".equals(uri.getScheme())) openBrowser(uri);
-        });
         setContentView(web);
         web.loadUrl("https://" + HOST + "/index.html");
-    }
-    private void openBrowser(Uri uri) {
-        try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
-        catch (android.content.ActivityNotFoundException ignored) { }
     }
     @Override public void onBackPressed() {
         web.evaluateJavascript("(()=>{const d=document.querySelector('dialog[open]');if(d){d.close();return true}return false})()", value -> {

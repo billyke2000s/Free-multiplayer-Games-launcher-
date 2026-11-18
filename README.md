@@ -6,9 +6,9 @@ A touchscreen multiplayer games launcher with cinematic imagery, a curated libra
 
 Run `npm start` and open http://localhost:8080. No dependencies are required. `npm run build` copies the web app into `dist/` and bundles the same files into the Android project.
 
-Included local games: Four in a Row, Reversi, Perfect Match and Noughts & Crosses. All support two players sharing one screen. Search, categories, favourites, recent games, reduced motion and fullscreen are functional. Preferences are stored locally.
+Included local games: 8 Ball Pool, Four in a Row, Reversi, Perfect Match and Noughts & Crosses. All support two players sharing one screen. Search, categories, favourites, recent games, reduced motion and fullscreen are functional. Preferences are stored locally.
 
-8 Ball Classic links to the official Famobi website selected during development. It requires internet and opens externally; Famobi game code and artwork are not bundled. Its cover is original generated artwork, not a screenshot of the game.
+8 Ball Pool is now an original, fully bundled two-player game. It runs inside the app, offline. Touch aiming, a power slider, trajectory guide, ball collisions, six pockets, cushions, group assignment, fouls, ball in hand and 8-ball win/loss handling are included. Pool has synthesized cue, ball, cushion, pocket, foul and victory effects. The other games and launcher also have sound effects, with a persistent mute switch. No Famobi code or external game links are used.
 
 ## Android APK
 
@@ -16,7 +16,7 @@ GitHub Actions builds a debug APK on pushes to main, pull requests and manual di
 
 For a local build: install JDK 17, Android SDK 35 and Gradle 8.9, run `npm run build`, then `gradle -p android assembleDebug`.
 
-The wrapper serves bundled assets through a fixed HTTPS origin in WebView; local games work offline. External HTTPS game links open in the browser. There is no native JavaScript bridge or file access. Google Fonts is optional and falls back to system fonts offline. The launcher supports Android 6+ with a current Android System WebView; modern browser APIs including dialog require an up-to-date WebView.
+The wrapper serves bundled assets through a fixed HTTPS origin in WebView; local games work offline. The curated catalogue contains no external game destinations. There is no Internet permission, external navigation, native JavaScript bridge or file access. All runtime code, game assets and sounds work offline. The launcher supports Android 6+ with a current Android System WebView; modern browser APIs including dialog require an up-to-date WebView.
 
 ## Artwork and catalogue
 
@@ -24,4 +24,4 @@ The wrapper serves bundled assets through a fixed HTTPS origin in WebView; local
 
 ## Verification
 
-`npm run check` checks JavaScript syntax. Interactive verification should cover filters, persisted favourites, navigation, each game's win/draw rules, restart/close, portrait and landscape overflow, and Android external-link/back-button behaviour. Android device testing remains necessary before release.
+`npm run check` checks JavaScript syntax and runs pool physics/rules regressions, including break simulations, scratches, groups and legal/illegal 8-ball wins. Interactive verification should cover filters, persisted favourites, navigation, each game's win/draw rules, restart/close, portrait and landscape overflow, and Android external-link/back-button behaviour. Android device testing remains necessary before release.
