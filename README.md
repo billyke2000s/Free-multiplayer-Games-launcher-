@@ -1,27 +1,42 @@
-# Playroom
+# AAC Playroom — Unified Games
 
-A touchscreen multiplayer games launcher with cinematic imagery, a curated library, large touch targets and portrait/landscape layouts. No add-game interface.
+One offline-first, touchscreen-friendly games launcher with **16 games in a single HTML page**. This repository replaces the previous five-game Playroom launcher.
 
-## Play
+## Games
+- **8-Ball Pool:** practice, CPU difficulty levels, local multiplayer/2v2, spin and shot planning.
+- **Arcade (7):** Space Explorer, Brick Breaker, Target Tap, Colour Lanes, Whack-a-Mole, Tic-Tac-Toe and Checkers.
+- **Cards (8):** Crazy Eights, Go Fish, Memory Match, Snap, Solitaire, Rummy, Spades and Card Battle.
 
-Run `npm start` and open http://localhost:8080. No dependencies are required. `npm run build` copies the web app into `dist/` and bundles the same files into the Android project.
+Crazy Eights has its own four-colour action deck. The traditional card games use SVG playing cards. No poker or wagering is included. Star Catcher has been removed.
 
-Included local games: 8 Ball Pool, Four in a Row, Reversi, Perfect Match and Noughts & Crosses. All support two players sharing one screen. Search, categories, favourites, recent games, reduced motion and fullscreen are functional. Preferences are stored locally.
+## Run locally
+```sh
+npm run check
+npm start
+```
+Open http://localhost:8080. The root `index.html` includes all game logic and images so it can also be opened directly offline.
 
-8 Ball Pool is now an original, fully bundled two-player game. It runs inside the app, offline. Touch aiming, a power slider, trajectory guide, ball collisions, six pockets, cushions, group assignment, fouls, ball in hand and 8-ball win/loss handling are included. Pool has synthesized cue, ball, cushion, pocket, foul and victory effects. The other games and launcher also have sound effects, with a persistent mute switch. No Famobi code or external game links are used.
+## Build the Android APK
+The GitHub Actions **Build Playroom APK** workflow runs on pushes to `main`. After a successful run, download the **Playroom-APK** artifact. It is a debug APK for testing, not a Play Store release.
 
-## Android APK
+For a local build, install JDK 17, Android SDK 35 and Gradle 8.9, then:
+```sh
+npm run build
+gradle -p android assembleDebug
+```
+The build copies `index.html` into `dist/` for static hosting and into the Android WebView's bundled assets. The Android app uses a local HTTPS asset host with no network permission. The Android Back action offers an in-game exit confirmation; the on-screen arrow supports hold-to-exit.
 
-GitHub Actions builds a debug APK on pushes to main, pull requests and manual dispatch. Download **Playroom-APK** from the completed **Build Playroom APK** workflow run. Extract the ZIP and install the APK. Debug builds are for testing; configure your own signing key before a store release.
+## Important limitations
+- Bluetooth multiplayer requires a **native Android Bluetooth transport**. The V9 HTML contains UI integration points, but this repository's Android wrapper does **not yet implement** that transport. Nearby-phone games are not verified and should not be advertised as working.
+- CPU and local/same-device modes are implemented, but physical-device testing of the Android APK is still needed.
+- Tests in `npm run check` validate packaging, syntax and some structural invariants. They are **not** complete gameplay or device tests.
+- In a regular Android browser, Chrome's address bar cannot be hidden by a local HTML file; use the Android APK for immersive play.
 
-For a local build: install JDK 17, Android SDK 35 and Gradle 8.9, run `npm run build`, then `gradle -p android assembleDebug`.
+## Repository layout
+- `index.html`: canonical unified arcade.
+- `scripts/build.mjs`: copies the HTML into static hosting and Android assets.
+- `scripts/check.mjs`: static/syntax regression checks.
+- `android/`: offline WebView app and Gradle project.
+- `.github/workflows/android.yml`: debug APK build.
 
-The wrapper serves bundled assets through a fixed HTTPS origin in WebView; local games work offline. The curated catalogue contains no external game destinations. There is no Internet permission, external navigation, native JavaScript bridge or file access. All runtime code, game assets and sounds work offline. The launcher supports Android 6+ with a current Android System WebView; modern browser APIs including dialog require an up-to-date WebView.
-
-## Artwork and catalogue
-
-`assets/pool.jpg`: original generated billiards photograph for this project. Other cover assets are original vector illustrations of the included game pieces. Titles and online destinations are curated in `app.js`; there is no user-facing way to add games.
-
-## Verification
-
-`npm run check` checks JavaScript syntax and runs pool physics/rules regressions, including break simulations, scratches, groups and legal/illegal 8-ball wins. Interactive verification should cover filters, persisted favourites, navigation, each game's win/draw rules, restart/close, portrait and landscape overflow, and Android external-link/back-button behaviour. Android device testing remains necessary before release.
+The previous launcher code remains available in Git history; it is not used by this version.

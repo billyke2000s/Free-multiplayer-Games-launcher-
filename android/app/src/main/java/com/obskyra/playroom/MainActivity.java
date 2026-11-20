@@ -3,6 +3,7 @@ package com.obskyra.playroom;
 import android.app.Activity;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -14,6 +15,10 @@ public class MainActivity extends Activity {
     private static final String HOST = "app.playroom.local";
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         getWindow().setStatusBarColor(0xff121817);
         getWindow().setNavigationBarColor(0xff121817);
         web = new WebView(this);
@@ -43,7 +48,7 @@ public class MainActivity extends Activity {
         web.loadUrl("https://" + HOST + "/index.html");
     }
     @Override public void onBackPressed() {
-        web.evaluateJavascript("(()=>{const d=document.querySelector('dialog[open]');if(d){d.close();return true}return false})()", value -> {
+        web.evaluateJavascript("(()=>{if(window.AACExit?.isGameOpen?.()){window.AACExit.openConfirmation();return true}return false})()", value -> {
             if (!"true".equals(value)) finish();
         });
     }

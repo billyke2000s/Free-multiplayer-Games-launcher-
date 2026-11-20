@@ -1,4 +1,7 @@
-import {mkdir,copyFile,cp,rm} from 'node:fs/promises';
-const outputs=['dist','android/app/src/main/assets'];
-for(const dir of outputs){await rm(dir,{recursive:true,force:true});await mkdir(dir,{recursive:true});for(const name of ['index.html','style.css','app.js','audio.js','pool.js'])await copyFile(name,`${dir}/${name}`);await cp('assets',`${dir}/assets`,{recursive:true});}
-console.log('Built web launcher and bundled Android assets.');
+import { mkdir, copyFile, rm } from 'node:fs/promises';
+for (const dest of ['dist','android/app/src/main/assets']) {
+  await rm(dest,{recursive:true,force:true});
+  await mkdir(dest,{recursive:true});
+  await copyFile('index.html',dest+'/index.html');
+}
+console.log('Built unified 16-game HTML for static hosting and offline Android WebView.');
