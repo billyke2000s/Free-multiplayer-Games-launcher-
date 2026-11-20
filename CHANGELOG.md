@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.2.2](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.2) — 2026-11-20
+
+**Sound effects across all 16 games.**
+
+### Fixed and added
+- Replaced the arcade's default-muted audio with an offline shared WebAudio sound engine.
+- Sound is on by default and the mute setting is remembered across sessions.
+- Card Club now has its own sound toggle, synced with the main launcher and in-game controls.
+- Added effects for pool shots, collisions and pockets; board-game moves, captures, wins and crowns.
+- Added distinct arcade sounds for lasers, bounces, scoring, errors, hits and game over.
+- Added card sounds for draws, flips, matching, actions, SNAP calls, shuffling, tricks, errors and wins.
+- Android WebView permits audio for CPU and remote-player turns.
+- Added automated sound-effect playback and preference tests.
+
+### Testing
+- The audio engine and game-event wiring are regression-checked. Final loudness, timing and Android hardware playback still need physical-device testing.
+- If muted, tap the music-note icon in the main launcher or Card Club to enable sounds.
+
+
 ## [2.2.1](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.1) — 2026-11-20
 
 **Pool cue and shot power control bugfix.**
