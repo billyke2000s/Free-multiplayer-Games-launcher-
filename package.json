@@ -1,10 +1,10 @@
 {
   "name": "aac-playroom-unified",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "private": true,
   "scripts": {
     "start": "python3 -m http.server 8080",
-    "check": "node scripts/check.mjs",
+    "check": "node scripts/check.mjs && node scripts/audio-test.mjs",
     "build": "node scripts/build.mjs"
   }
 }
