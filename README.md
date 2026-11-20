@@ -1,22 +1,22 @@
 <h1 align="center">🎮 AAC Playroom</h1>
 <p align="center"><strong>One launcher. Sixteen games. No internet required.</strong></p>
-<p align="center">A touchscreen-first collection of arcade, board and card games for Android and the browser. All 16 games now have offline sound effects enabled by default; tap the music-note button to mute or unmute. Your choice is remembered.<br/>Made for quick games, family play and accessible, straightforward controls.</p>
+<p align="center">A touchscreen-first collection of arcade, board and card games for Android and the browser. All 16 games have distinct offline sound palettes, enabled by default. Tap the music-note button to mute or unmute; your choice is remembered.<br/>Made for quick games, family play and accessible, straightforward controls.</p>
 
 <p align="center">
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.2"><img alt="Version 2.2.2" src="https://img.shields.io/badge/version-2.2.2-6C63FF?style=for-the-badge"></a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.3"><img alt="Version 2.2.3" src="https://img.shields.io/badge/version-2.2.3-6C63FF?style=for-the-badge"></a>
   <a href="#the-game-library"><img alt="16 games" src="https://img.shields.io/badge/games-16-28B99A?style=for-the-badge"></a>
   <a href="#android-installation"><img alt="Android 6+" src="https://img.shields.io/badge/Android-6%2B-3DDC84?style=for-the-badge&logo=android&logoColor=black"></a>
   <a href="#at-a-glance"><img alt="Offline-first" src="https://img.shields.io/badge/play-offline-1F2937?style=for-the-badge"></a>
 </p>
 <p align="center">
   <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml"><img alt="Android build" src="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml/badge.svg?branch=main"></a>
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.2"><img alt="Testing release" src="https://img.shields.io/badge/release-testing%20APK-E0A449"></a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.3"><img alt="Testing release" src="https://img.shields.io/badge/release-testing%20APK-E0A449"></a>
   <a href="index.html"><img alt="HTML5 and JavaScript" src="https://img.shields.io/badge/engine-HTML5%20%2B%20JavaScript-F7DF1E?logo=javascript&logoColor=black"></a>
 </p>
 <p align="center">
-  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.2.2/AAC-Playroom-v2.2.2-universal-debug.apk">⬇ Download Android APK</a></strong>
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.2.3/AAC-Playroom-v2.2.3-universal-debug.apk">⬇ Download Android APK</a></strong>
   &nbsp;·&nbsp;
-  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.2">📦 Release page</a></strong>
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.3">📦 Release page</a></strong>
   &nbsp;·&nbsp;
   <strong><a href="index.html">🌐 Web-app source</a></strong>
   &nbsp;·&nbsp;
@@ -36,7 +36,7 @@
   <tr>
     <td align="center"><strong>👥 Local + Bluetooth</strong><br/><sub>Same-device modes and Android Bluetooth Classic multiplayer</sub></td>
     <td align="center"><strong>🃏 SVG cards</strong><br/><sub>Vector card faces and backs</sub></td>
-    <td align="center"><strong>🔖 v2.2.2</strong><br/><sub>Debug-signed testing release</sub></td>
+    <td align="center"><strong>🔖 v2.2.3</strong><br/><sub>Debug-signed testing release</sub></td>
   </tr>
 </table>
 
@@ -79,7 +79,7 @@
 
 ## 📶 Bluetooth multiplayer (Android)
 
-**New in v2.2.2:** The Android application has a native **Bluetooth Classic RFCOMM** transport. This is **real phone-to-phone communication**; the browser version intentionally does not support Bluetooth Classic.
+**New in v2.2.3:** The Android application has a native **Bluetooth Classic RFCOMM** transport. This is **real phone-to-phone communication**; the browser version intentionally does not support Bluetooth Classic.
 
 **Supported across phones:**
 - **8-Ball Pool:** Two players. Moves, cue-ball placement and match state are exchanged, with the host correcting the settled table state after each shot.
@@ -89,7 +89,7 @@
 
 ### Connect two Android phones
 
-1. Install **the same v2.2.2 testing APK** on both Android phones. Enable Bluetooth on both.
+1. Install **the same v2.2.3 testing APK** on both Android phones. Enable Bluetooth on both.
 2. On the first phone, open a supported game → **Nearby Bluetooth** → **Host a game**. Accept Android's *Nearby devices* permission and the **discoverable** prompt.
 3. On the second phone, open the same game → **Nearby Bluetooth** → **Join a game**. Give Android Nearby devices or Location permission if prompted. The host should appear in the device list; tap it.
 4. Accept any Android **Bluetooth pairing request / matching code** on both phones. Card games let the host choose when to start. Pool and board games begin when the connection succeeds.
@@ -114,10 +114,10 @@ Requires **Android 6.0 (API 23) or later**, and a functional Android System WebV
 
 ## 🚀 Android installation
 
-> **Current release:** [AAC Playroom v2.2.2](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.2) — **testing / pre-release**.
+> **Current release:** [AAC Playroom v2.2.3](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.3) — **testing / pre-release**.
 
-1. Open the **[APK download](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.2.2/AAC-Playroom-v2.2.2-universal-debug.apk)** on your Android device.
-2. Download the `AAC-Playroom-v2.2.2-universal-debug.apk` file.
+1. Open the **[APK download](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.2.3/AAC-Playroom-v2.2.3-universal-debug.apk)** on your Android device.
+2. Download the `AAC-Playroom-v2.2.3-universal-debug.apk` file.
 3. Allow your browser or file manager to install apps from that source when Android prompts you.
 4. Install and launch **Playroom**.
 
@@ -194,7 +194,7 @@ A public software licence has **not** been added to this repository. Do not assu
 <div align="center">
   <strong>🎮 PLAYROOM</strong><br/>
   <sub>Pick a game. Share the screen. Have fun.</sub><br/><br/>
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.2">Download v2.2.2</a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.3">Download v2.2.3</a>
   ·
   <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/issues">Report an issue</a>
 </div>
