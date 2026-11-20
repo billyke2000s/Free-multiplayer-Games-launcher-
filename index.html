@@ -409,7 +409,7 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const colors=['#fbfaf3','#f8c831','#2457bd','#d83936','#7542a9','#f08c29','#198e68','#773731','#131a20','#f8c831','#2457bd','#d83936','#7542a9','#f08c29','#198e68','#773731'];
 const names={easy:'Rookie CPU',medium:'Club CPU',hard:'Expert CPU'};
 function makePlayers(mode){if(mode==='duo-cpu')return[{name:'Player 1',team:0,cpu:false},{name:'CPU 1',team:1,cpu:true},{name:'Player 2',team:0,cpu:false},{name:'CPU 2',team:1,cpu:true}];if(mode==='duo-local')return[{name:'Player 1',team:0,cpu:false},{name:'Player 3',team:1,cpu:false},{name:'Player 2',team:0,cpu:false},{name:'Player 4',team:1,cpu:false}];if(mode==='practice')return[{name:'Practice',team:0,cpu:false},{name:'Table',team:1,cpu:false}];return[{name:mode==='local'?'Player 1':'You',team:0,cpu:false},{name:mode==='local'?'Player 2':mode==='cpu-hard'?names.hard:mode==='cpu-medium'?names.medium:names.easy,team:1,cpu:mode.startsWith('cpu')}];}
-function start(mode,{area,showModal,closeModal,closeGame,tone,restart,remoteRestart,bluetooth=null}){
+function start(mode,{area,showModal,closeModal,closeGame,restart,remoteRestart,bluetooth=null}){
 const poolFx=(event,detail)=>window.AACSound?.play('pool',event,detail);
 const e=new Engine(),players=makePlayers(mode),teamModes=mode.startsWith('duo'),practice=mode==='practice',difficulty=mode==='cpu-hard'?'hard':mode==='cpu-medium'?'medium':'easy';
 const bt=bluetooth,homeSeat=bt?.role==='client'?1:0;
@@ -1133,12 +1133,23 @@ function checkersMode(){modeMenu('Checkers','Capture diagonally, crown kings and
 {name:'Nearby Bluetooth · two phones',desc:'Play checkers on two Android phones',fn:()=>arcadeNearby('checkers')}])}
 // ─── EIGHT-BALL POOL ───────────────────────────────────────────────────────
 function startPool(mode){
- active=window.PoolGameV4.start(mode,{
- area,showModal,closeModal,closeGame,tone,
- restart:()=>{if(arcadeBt?.game==='pool'&&arcadeBt.role==='host')sendArcadeBt({type:'arcade_reset',game:'pool'});cleanup();startPool(mode)},
- remoteRestart:()=>{cleanup();startPool(mode)},
- bluetooth:arcadeBt?.started&&arcadeBt.game==='pool'?{role:arcadeBt.role,send:sendArcadeBt}:null
-});
+ try{
+  active=window.PoolGameV4.start(mode,{
+   area,showModal,closeModal,closeGame,
+   restart:()=>{if(arcadeBt?.game==='pool'&&arcadeBt.role==='host')sendArcadeBt({type:'arcade_reset',game:'pool'});cleanup();startPool(mode)},
+   remoteRestart:()=>{cleanup();startPool(mode)},
+   bluetooth:arcadeBt?.started&&arcadeBt.game==='pool'?{role:arcadeBt.role,send:sendArcadeBt}:null
+  });
+ }catch(error){
+  // A failed game startup must display an error rather than a black screen.
+  console.error('8-Ball Pool failed to start:',error);
+  active=null;
+  area.innerHTML='<section role="alert" style="min-height:65vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:18px;text-align:center;color:#fff"><h2>Pool could not start</h2><p id="poolStartProblem">Unable to open the table.</p><button type="button" class="primary-button" id="poolStartRetry">Try again</button><button type="button" class="secondary-button" id="poolStartBack">Back to games</button></section>';
+  const msg=area.querySelector('#poolStartProblem');
+  if(msg)msg.textContent=String(error?.message||'Unknown problem');
+  area.querySelector('#poolStartRetry')?.addEventListener('click',()=>{cleanup();startPool(mode)});
+  area.querySelector('#poolStartBack')?.addEventListener('click',closeGame);
+ }
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
 // ─── ARCADE GAMES ──────────────────────────────────────────────────────────
