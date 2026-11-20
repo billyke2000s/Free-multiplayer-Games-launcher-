@@ -250,7 +250,9 @@ gap:clamp(5px,1.5vw,10px)!important;padding:8px!important;margin:auto!important;
  * Simulation units: table-space px and seconds, radius 12 px, equal ball masses.
  * This approximates real cloth/cushion behaviour; it is not a calibrated 3D simulator. */
 (function(root){'use strict';
-const R=12, DT=1/240, SLIDE=510, ROLL=136, STOP=2.1, RESTITUTION=.94, CUSHION=.82;
+// Calibrated against break and head-on collision regressions. Previous
+// SLIDE=510/ROLL=136 halted most rack balls in under 1.5 seconds.
+const R=12, DT=1/240, SLIDE=120, ROLL=25, STOP=1.6, RESTITUTION=.94, CUSHION=.82;
 const LIMITS={left:64,right:936,top:64,bottom:456};
 const POCKETS=[{x:56,y:56,r:29,kind:"corner"},{x:500,y:50,r:29,kind:"side"},{x:944,y:56,r:29,kind:"corner"},{x:56,y:464,r:29,kind:"corner"},{x:500,y:470,r:29,kind:"side"},{x:944,y:464,r:29,kind:"corner"}];
 const mag=(x,y)=>Math.hypot(x,y), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -408,6 +410,7 @@ const colors=['#fbfaf3','#f8c831','#2457bd','#d83936','#7542a9','#f08c29','#198e
 const names={easy:'Rookie CPU',medium:'Club CPU',hard:'Expert CPU'};
 function makePlayers(mode){if(mode==='duo-cpu')return[{name:'Player 1',team:0,cpu:false},{name:'CPU 1',team:1,cpu:true},{name:'Player 2',team:0,cpu:false},{name:'CPU 2',team:1,cpu:true}];if(mode==='duo-local')return[{name:'Player 1',team:0,cpu:false},{name:'Player 3',team:1,cpu:false},{name:'Player 2',team:0,cpu:false},{name:'Player 4',team:1,cpu:false}];if(mode==='practice')return[{name:'Practice',team:0,cpu:false},{name:'Table',team:1,cpu:false}];return[{name:mode==='local'?'Player 1':'You',team:0,cpu:false},{name:mode==='local'?'Player 2':mode==='cpu-hard'?names.hard:mode==='cpu-medium'?names.medium:names.easy,team:1,cpu:mode.startsWith('cpu')}];}
 function start(mode,{area,showModal,closeModal,closeGame,tone,restart,remoteRestart,bluetooth=null}){
+const poolFx=(event,detail)=>window.AACSound?.play('pool',event,detail);
 const e=new Engine(),players=makePlayers(mode),teamModes=mode.startsWith('duo'),practice=mode==='practice',difficulty=mode==='cpu-hard'?'hard':mode==='cpu-medium'?'medium':'easy';
 const bt=bluetooth,homeSeat=bt?.role==='client'?1:0;
 function localTurn(){return !bt||current===homeSeat}
@@ -476,12 +479,12 @@ function endTurn(){resetShotPower();const pot=e.pocketed.slice(),tm=shooter?.tea
 const coloured=pot.filter(id=>id!==0&&id!==8),eight=pot.includes(8);
 shotCount++;
 if(practice){if(foulScratch){safePlaceCue();ballInHand=true;textStatus('Scratch — tap a clear spot for ball in hand.')}else{textStatus(`${pot.length?pot.length+' ball(s) pocketed. ':''}Ready for your next shot.`)}updateUI();return;}
-if(eight){const eligible=groups[tm]!==null&&ballsRemaining(tm)===0&&!foul;const winner=eligible?tm:1-tm;finished=true;sfx('win');const winningNames=players.filter(p=>p.team===winner).map(p=>p.name).join(' & ');textStatus(eligible?'8-ball pocketed legally.':'Early 8-ball or foul — opponent wins.');updateUI();showModal(`${winningNames} win!`,eligible?'Clean finish — all your object balls were cleared first.':'Under these house rules, pocketing the 8-ball early or while fouling loses the match.',[{text:'Games',fn:closeGame},bt?.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'Rack again',primary:true,fn:restart}],'🏆');syncPool();return;}
+if(eight){const eligible=groups[tm]!==null&&ballsRemaining(tm)===0&&!foul;const winner=eligible?tm:1-tm;finished=true;poolFx('win');const winningNames=players.filter(p=>p.team===winner).map(p=>p.name).join(' & ');textStatus(eligible?'8-ball pocketed legally.':'Early 8-ball or foul — opponent wins.');updateUI();showModal(`${winningNames} win!`,eligible?'Clean finish — all your object balls were cleared first.':'Under these house rules, pocketing the 8-ball early or while fouling loses the match.',[{text:'Games',fn:closeGame},bt?.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'Rack again',primary:true,fn:restart}],'🏆');syncPool();return;}
 if(!foul&&groups[tm]===null&&coloured.length){groups[tm]=coloured[0]<8?'SOLIDS':'STRIPES';groups[1-tm]=groups[tm]==='SOLIDS'?'STRIPES':'SOLIDS';}
 const validPot=coloured.some(id=>groups[tm]===null|| (groups[tm]==='SOLIDS'?id<8:id>8));
-if(foul){sfx('wrong');changeTurn(false);safePlaceCue();ballInHand=true;textStatus(`${foulScratch?'SCRATCH':wrongFirst?'FOUL · WRONG FIRST CONTACT':'FOUL · NO RAIL'} — ${getActive().name} has ball in hand.`);}
-else if(validPot){changeTurn(true);sfx('score');textStatus(`${getActive().name} continues after a legal pot.`)}
-else{changeTurn(false);sfx('turn');textStatus(`No legal pot — ${getActive().name} to play.`)}
+if(foul){poolFx('foul');changeTurn(false);safePlaceCue();ballInHand=true;textStatus(`${foulScratch?'SCRATCH':wrongFirst?'FOUL · WRONG FIRST CONTACT':'FOUL · NO RAIL'} — ${getActive().name} has ball in hand.`);}
+else if(validPot){changeTurn(true);poolFx('pot');textStatus(`${getActive().name} continues after a legal pot.`)}
+else{changeTurn(false);poolFx('turn');textStatus(`No legal pot — ${getActive().name} to play.`)}
 updateUI();syncPool();if(getActive().cpu)cpuid=setTimeout(cpuTurn,650);
 }
 function shoot(angle,force,fromRemote=false,remoteSpin=null){
@@ -492,7 +495,7 @@ function shoot(angle,force,fromRemote=false,remoteSpin=null){
  shotSnapshot=practice?e.snapshot():null;shooter={...getActive()};
  if(e.shoot(angle,force,shotSpin)){
   if(bt&&!fromRemote)bt.send({type:'arcade_pool_shot',game:'pool',angle,force,spin:{x:shotSpin.x,y:shotSpin.y},shotCount});
-  resetShotPower();textStatus('Stroke delivered — watch the rolling balls.');updateUI();sfx('shot');
+  resetShotPower();textStatus('Stroke delivered — watch the rolling balls.');updateUI();poolFx('strike');
  }
 }
 function aiPlacement(){if(!ballInHand)return;const position=root.PoolAIV6.selectBallInHand(e,groups[getTeam()]);if(!e.placeCue(position.x,position.y))safePlaceCue();ballInHand=false;}
@@ -506,7 +509,7 @@ async function cpuTurn(){cpuid=0;if(!getActive().cpu||finished||e.shotRunning)re
   }
   resetShotPower();tip={x:0,y:selection?.spin||0};shooter={...getActive()};
   textStatus(`${shooter.name} chose ${selection?.kind||'a safety'} shot (${selection?.evaluated||0} simulated options).`);
-  e.shoot(angle,pwr,tip);resetShotPower();updateUI();sfx('shot');
+  e.shoot(angle,pwr,tip);resetShotPower();updateUI();poolFx('strike');
 }
 function setPowerPreview(value){
  power=clamp(value,0,1);
@@ -712,7 +715,7 @@ function render(){ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,1000,520); // 
 
 }
 let processed=0;
-function frame(now){const dt=Math.min(.06,(now-(last||now))/1000);last=now;if(e.shotRunning){e.update(dt);if(e.events.length!==processed){for(let i=processed;i<e.events.length;i++){const ev=e.events[i];if(ev.type==='collision'&&ev.speed>40)sfx('hit');if(ev.type==='pocket')sfx(ev.id===0?'wrong':'pocket')}processed=e.events.length;}}
+function frame(now){const dt=Math.min(.06,(now-(last||now))/1000);last=now;if(e.shotRunning){e.update(dt);if(e.events.length!==processed){for(let i=processed;i<e.events.length;i++){const ev=e.events[i];if(ev.type==='collision'&&ev.speed>40)poolFx('collision',ev.speed);if(ev.type==='pocket')poolFx(ev.id===0?'scratch':'pocket')}processed=e.events.length;}}
  if(!e.shotRunning&&buttonsFrozen){buttonsFrozen=false;endTurn();}
  if(e.shotRunning)buttonsFrozen=true;
  render();raf=requestAnimationFrame(frame)}
