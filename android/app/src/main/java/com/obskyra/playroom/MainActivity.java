@@ -28,6 +28,9 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(0xff121817);
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setDomStorageEnabled(true);
+        // Game sound effects use WebAudio. Let our bundled offline game play
+        // effects on CPU/Bluetooth turns after the context has been unlocked.
+        web.getSettings().setMediaPlaybackRequiresUserGesture(false);
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
         bluetooth = new BluetoothBridge(this, web);
