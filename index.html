@@ -747,6 +747,89 @@ root.PoolGameV4={start};
 })(typeof globalThis!=='undefined'?globalThis:this);
 
 </script>
+<script id="aac-sound-engine">
+/* Offline procedural sound effects shared by ALL games and the Card Club
+ * Shadow DOM. One WebAudio context. No remote sound files or dependencies.
+ * Sound ON by default; user mute setting persists across launches. */
+(function(root){'use strict';
+const KEY='aac-playroom-sfx-v1',last=Object.create(null);
+let enabled=true,ctx=null,output=null,noiseBuffer=null;
+try{let saved=localStorage.getItem(KEY);if(saved!==null)enabled=saved==='on'}catch{}
+function ensure(){
+ const C=root.AudioContext||root.webkitAudioContext;
+ if(!C)return null;
+ if(!ctx){ctx=new C();output=ctx.createGain();output.gain.value=.65;output.connect(ctx.destination)}
+ return ctx;
+}
+function withAudio(fn){
+ if(!enabled)return;
+ try{const c=ensure();if(!c)return;
+  if(c.state==='running')fn(c);
+  else if(c.state==='suspended')c.resume().then(()=>{if(enabled&&c.state==='running')fn(c)}).catch(()=>{});
+ }catch{}
+}
+function note(c,f,d=.07,type='triangle',volume=.04,end=1,delay=0){
+ const t=c.currentTime+delay,finish=t+Math.max(.025,d),o=c.createOscillator(),g=c.createGain();
+ o.type=type;o.frequency.setValueAtTime(Math.max(40,f),t);
+ if(end!==1)o.frequency.exponentialRampToValueAtTime(Math.max(40,f*end),finish);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.001,volume),t+.008);
+ g.gain.exponentialRampToValueAtTime(.0001,finish);o.connect(g);g.connect(output);o.start(t);o.stop(finish+.01);
+}
+function rustle(c,d=.065,volume=.035,cutoff=2600){
+ if(!noiseBuffer){noiseBuffer=c.createBuffer(1,Math.floor(c.sampleRate*.2),c.sampleRate);
+  const data=noiseBuffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1}
+ const t=c.currentTime,src=c.createBufferSource(),filter=c.createBiquadFilter(),g=c.createGain();
+ src.buffer=noiseBuffer;filter.type='lowpass';filter.frequency.value=cutoff;
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(volume,t+.008);
+ g.gain.exponentialRampToValueAtTime(.0001,t+Math.min(.19,d));
+ src.connect(filter);filter.connect(g);g.connect(output);src.start(t);src.stop(t+Math.min(.19,d)+.01);
+}
+function play(type='tap'){
+ if(!enabled)return;
+ let now=Date.now(),gaps={laser:135,bounce:65,hit:40,card:65,select:45,flip:60};
+ if(gaps[type]&&now-(last[type]||0)<gaps[type])return;last[type]=now;
+ withAudio(c=>{
+  switch(type){
+   case'tap':case'select':note(c,740,.045,'sine',.033,.84);break;
+   case'button':note(c,680,.055,'sine',.04,1.12);break;
+   case'card':rustle(c,.07,.04,2400);note(c,400,.04,'triangle',.018,.85);break;
+   case'draw':rustle(c,.12,.05,2000);note(c,480,.09,'triangle',.022,.7);break;
+   case'flip':rustle(c,.048,.032,3600);note(c,630,.043,'triangle',.034,1.18);break;
+   case'shuffle':rustle(c,.18,.065,2400);note(c,410,.08,'triangle',.03,1.34);break;
+   case'place':note(c,430,.08,'triangle',.07,.72);rustle(c,.035,.02,1400);break;
+   case'hit':note(c,310,.05,'triangle',.05,.72);rustle(c,.027,.018,1200);break;
+   case'bounce':note(c,470,.052,'triangle',.055,.72);break;
+   case'shot':note(c,180,.14,'triangle',.10,.48);rustle(c,.064,.04,1250);break;
+   case'laser':note(c,980,.053,'sawtooth',.022,.54);break;
+   case'pocket':note(c,760,.10,'sine',.07,.8);note(c,450,.14,'sine',.05,.72,.07);break;
+   case'score':note(c,620,.083,'sine',.055,1.12);note(c,820,.12,'sine',.057,1.06,.085);break;
+   case'match':note(c,750,.09,'sine',.06,1.12);note(c,1020,.145,'sine',.065,1.02,.085);break;
+   case'snap':rustle(c,.068,.09,3600);note(c,490,.16,'square',.045,.62);break;
+   case'capture':note(c,380,.10,'triangle',.065,.65);note(c,620,.12,'sine',.046,1.2,.05);break;
+   case'crown':note(c,680,.13,'sine',.064,1.04);note(c,930,.17,'sine',.065,1.05,.11);break;
+   case'damage':case'wrong':note(c,235,.17,'sawtooth',.05,.52);break;
+   case'turn':note(c,530,.085,'sine',.045,1.17);break;
+   case'win':[540,700,875,1120].forEach((f,i)=>note(c,f,.19,'sine',.075,1.04,i*.12));break;
+   case'lose':[470,340,225].forEach((f,i)=>note(c,f,.17,'triangle',.065,.9,i*.13));break;
+   default:note(c,550,.07,'sine',.04);break;
+  }
+ });
+}
+function tone(freq=500,ms=65){
+ withAudio(c=>note(c,Math.max(60,Math.min(2300,Number(freq)||500)),Math.max(.025,Math.min(.3,(Number(ms)||65)/1000)),'sine',.055,.95));
+}
+function setEnabled(value){
+ enabled=!!value;try{localStorage.setItem(KEY,enabled?'on':'off')}catch{}
+ if(enabled)play('button');root.dispatchEvent(new Event('aac-soundchange'));return enabled;
+}
+function unlock(){if(!enabled)return;try{const c=ensure();if(c?.state==='suspended')c.resume().catch(()=>{})}catch{}}
+document.addEventListener('pointerdown',unlock,{capture:true,passive:true});
+document.addEventListener('touchstart',unlock,{capture:true,passive:true});
+document.addEventListener('keydown',unlock,{capture:true});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)unlock()});
+root.AACSound={play,tone,setEnabled,unlock,get enabled(){return enabled}};
+})(window);
+</script>
 <script>
 /** AAC GAMES — offline HTML5 collection.
  * Entry points: window.AACGames.open(id), .close(), .destroy().
