@@ -5,7 +5,7 @@ Thanks for helping improve Playroom. Bug fixes, accessibility improvements and g
 ## Report a bug
 
 Use [GitHub Issues](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/issues/new/choose) and include:
-- Game name and whether you were playing with CPUs or local players
+- Game name and whether you were playing with CPUs, same-device players or Bluetooth friends
 - Android version, phone/tablet model and browser or app wrapper
 - Portrait or landscape orientation
 - Steps to reproduce (including rotation, touch/hold behaviour and timing where relevant)
@@ -31,8 +31,9 @@ For Android changes, build the debug APK with `gradle -p android assembleDebug` 
 - Ball movement, score updates and multi-ball behaviour in Brick Breaker
 - Pool pocket geometry, CPU legality and physics
 - Card readability, CPU turn pacing, correct pile/hand sizes and game rules
+- Bluetooth host/join, paired/unpaired discovery, Android Nearby devices/Location permission flows and lost-connection handling
 - Touch targets, contrast, readability and avoiding time pressure for children
 
 ## Scope & security
 
-This is intended as an **offline-first** games collection. Do not add tracking, advertisements, remote scripts or network requests without discussing the change. Bluetooth multiplayer is a future feature, not a currently available connection system. Respect the owners' rights to source code and any third-party assets; a distribution licence has not been selected.
+This is intended as an **offline-first** games collection. Do not add tracking, advertisements, remote scripts or network requests without discussing the change. Bluetooth Classic multiplayer is implemented in the native Android wrapper for Pool, Tic-Tac-Toe, Checkers and eligible card games. Test with two physical Android phones (or up to four for supported card games), including OS pairing prompts, joining, disconnections, private hands, permission denial and rejoining. The browser preview does not support this native connection system. Respect the owners' rights to source code and any third-party assets; a distribution licence has not been selected.
