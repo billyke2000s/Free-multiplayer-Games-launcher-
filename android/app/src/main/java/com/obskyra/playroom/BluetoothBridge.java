@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Bluetooth Classic RFCOMM transport for the offline card-game host/client protocol.
@@ -278,7 +280,7 @@ public final class BluetoothBridge {
                 }
             };
             if (Build.VERSION.SDK_INT >= 33) {
-                activity.registerReceiver(discoveryReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+                activity.registerReceiver(discoveryReceiver, filter, Context.RECEIVER_EXPORTED);
             } else {
                 activity.registerReceiver(discoveryReceiver, filter);
             }
@@ -366,6 +368,7 @@ public final class BluetoothBridge {
         final BluetoothSocket socket;
         final int token;
         final Object writeLock = new Object();
+        final ExecutorService writer = Executors.newSingleThreadExecutor();
 
         Peer(String id, BluetoothSocket socket, int token) {
             this.id = id;
@@ -382,7 +385,7 @@ public final class BluetoothBridge {
                 error("Bluetooth message is too large.");
                 return;
             }
-            new Thread(() -> {
+            writer.execute(() -> {
                 try {
                     synchronized (writeLock) {
                         if (token != generation) return;
@@ -395,7 +398,7 @@ public final class BluetoothBridge {
                 } catch (IOException e) {
                     closeSocket(socket);
                 }
-            }, "Playroom-Bluetooth-Send").start();
+            });
         }
 
         void readLoop() {
@@ -412,6 +415,7 @@ public final class BluetoothBridge {
                 }
             } catch (IOException | JSONException ignored) {
             } finally {
+                writer.shutdownNow();
                 closeSocket(socket);
                 if (token != generation) return;
                 if (hosting) {
@@ -455,8 +459,8 @@ public final class BluetoothBridge {
         connectingSocket = null;
         Peer client = clientPeer;
         clientPeer = null;
-        if (client != null) closeSocket(client.socket);
-        for (Peer peer : peers.values()) closeSocket(peer.socket);
+        if (client != null) { client.writer.shutdownNow(); closeSocket(client.socket); }
+        for (Peer peer : peers.values()) { peer.writer.shutdownNow(); closeSocket(peer.socket); }
         peers.clear();
     }
 
