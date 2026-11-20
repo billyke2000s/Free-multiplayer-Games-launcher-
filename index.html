@@ -1137,29 +1137,76 @@ active={destroy(){cancelAnimationFrame(raf);ro.disconnect();window.removeEventLi
 }
 // ─── TIC-TAC-TOE ───────────────────────────────────────────────────────────
 function startTTT(cpu){
+const net=!!(arcadeBt?.started&&arcadeBt.game==='ttt');
+const localMark=net?(arcadeBt.role==='host'?'X':'O'):null;
 let board=Array(9).fill(''),turn='X',wins=[0,0],round=1,done=false,timer=0;
 area.innerHTML=`<div class="screen-layout strategy-v5 ttt-v5"><div class="game-status"><div><strong id="tttTurn">Your turn · X</strong><div class="hint">Three in a row wins. Tap an empty square.</div></div><span class="stat-chip" id="tttScore">X 0 — 0 O</span></div><div class="board-grid" id="tttBoard" role="group" aria-label="Tic-Tac-Toe board"></div><div class="game-tools"><button class="secondary-button" id="tttNew">New round</button><button class="secondary-button" id="tttMode">Change mode</button></div></div>`;
 const winLines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 function verdict(b){for(const l of winLines){if(b[l[0]]&&l.every(i=>b[i]===b[l[0]]))return{winner:b[l[0]],line:l}}return b.every(Boolean)?{winner:'draw',line:[]}:null}
 function minimax(b,who,depth){const v=verdict(b);if(v)return v.winner==='O'?10-depth:v.winner==='X'?depth-10:0;const vals=[];for(let i=0;i<9;i++)if(!b[i]){b[i]=who;vals.push(minimax(b,who==='X'?'O':'X',depth+1));b[i]=''}return who==='O'?Math.max(...vals):Math.min(...vals)}
-function render(){const v=verdict(board),win=v?.line||[];$('#tttBoard').innerHTML=board.map((item,i)=>`<button class="ttt-cell ${item.toLowerCase()} ${win.includes(i)?'win':''}" data-tile="${i}" aria-label="${item?item+' at':'Empty'} row ${Math.floor(i/3)+1} column ${i%3+1}" ${item||done?'disabled':''}>${item==='X'?'<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M20 20L80 80M80 20L20 80" fill="none" stroke="#72edec" stroke-width="13" stroke-linecap="round"/></svg>':item==='O'?'<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="32" fill="none" stroke="#ffca77" stroke-width="13"/></svg>':''}</button>`).join('');$('#tttScore').textContent=`X ${wins[0]} — ${wins[1]} O`;$('#tttTurn').textContent=done?'Round finished':cpu&&turn==='O'?'CPU is thinking…':`${cpu?(turn==='X'?'Your':'CPU'):'Player '+(turn==='X'?'1':'2')} turn · ${turn}`}
-function newRound(){clearTimeout(timer);board=Array(9).fill('');turn='X';done=false;round++;render()}
-function move(i){if(done||board[i])return;board[i]=turn;tone(turn==='X'?590:440);const v=verdict(board);if(v){done=true;if(v.winner!=='draw')wins[v.winner==='X'?0:1]++;render();timer=setTimeout(()=>showModal(v.winner==='draw'?'It’s a draw!':(v.winner==='X'?(cpu?'You win!':'Player 1 wins!'):(cpu?'CPU wins!':'Player 2 wins!')),`Round ${round} complete. X ${wins[0]} – ${wins[1]} O`,[{text:'Games',fn:closeGame},{text:'Next round',primary:true,fn:()=>{closeModal();newRound()}}],v.winner==='draw'?'🤝':'🏆'),250);return}turn=turn==='X'?'O':'X';render();if(cpu&&turn==='O'){timer=setTimeout(()=>{if(done)return;let best=-Infinity,options=[];for(let j=0;j<9;j++)if(!board[j]){board[j]='O';let value=minimax(board,'X',1);board[j]='';if(value>best){best=value;options=[j]}else if(value===best)options.push(j)}if(options.length)move(choice(options))},460)}}
-$('#tttBoard').onclick=e=>{const cell=e.target.closest('[data-tile]');if(cell&&(!cpu||turn==='X'))move(+cell.dataset.tile)};$('#tttNew').onclick=newRound;$('#tttMode').onclick=()=>{cleanup();tttMode()};render();active={destroy(){clearTimeout(timer)}};
+function render(){const v=verdict(board),win=v?.line||[];$('#tttBoard').innerHTML=board.map((item,i)=>`<button class="ttt-cell ${item.toLowerCase()} ${win.includes(i)?'win':''}" data-tile="${i}" aria-label="${item?item+' at':'Empty'} row ${Math.floor(i/3)+1} column ${i%3+1}" ${item||done?'disabled':''}>${item==='X'?'<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M20 20L80 80M80 20L20 80" fill="none" stroke="#72edec" stroke-width="13" stroke-linecap="round"/></svg>':item==='O'?'<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="32" fill="none" stroke="#ffca77" stroke-width="13"/></svg>':''}</button>`).join('');$('#tttScore').textContent=`X ${wins[0]} — ${wins[1]} O`;$('#tttTurn').textContent=done?'Round finished':net?(turn===localMark?'Your turn · '+turn:'Friend’s turn · '+turn):cpu&&turn==='O'?'CPU is thinking…':`${cpu?(turn==='X'?'Your':'CPU'):'Player '+(turn==='X'?'1':'2')} turn · ${turn}`}
+function newRound(remote=false){
+ if(net&&!remote&&arcadeBt.role!=='host')return;
+ if(net&&!remote)sendArcadeBt({type:'arcade_reset',game:'ttt',round:round+1});
+ clearTimeout(timer);closeModal();board=Array(9).fill('');turn='X';done=false;round++;render();
+}
+function move(i,remote=false){
+ if(!Number.isInteger(i)||i<0||i>=9||done||board[i]||(net&&!remote&&turn!==localMark))return;
+ if(net&&!remote)sendArcadeBt({type:'arcade_move',game:'ttt',index:i,turn,round});
+ board[i]=turn;tone(turn==='X'?590:440);const v=verdict(board);if(v){done=true;if(v.winner!=='draw')wins[v.winner==='X'?0:1]++;render();timer=setTimeout(()=>showModal(v.winner==='draw'?'It’s a draw!':(v.winner==='X'?(cpu?'You win!':'Player 1 wins!'):(cpu?'CPU wins!':'Player 2 wins!')),`Round ${round} complete. X ${wins[0]} – ${wins[1]} O`,[{text:'Games',fn:closeGame},net&&arcadeBt.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'Next round',primary:true,fn:()=>newRound()}],v.winner==='draw'?'🤝':'🏆'),250);return}turn=turn==='X'?'O':'X';render();if(cpu&&turn==='O'){timer=setTimeout(()=>{if(done)return;let best=-Infinity,options=[];for(let j=0;j<9;j++)if(!board[j]){board[j]='O';let value=minimax(board,'X',1);board[j]='';if(value>best){best=value;options=[j]}else if(value===best)options.push(j)}if(options.length)move(choice(options))},460)}}
+$('#tttBoard').onclick=e=>{const cell=e.target.closest('[data-tile]');if(cell&&(!cpu||turn==='X')&&(!net||turn===localMark))move(+cell.dataset.tile)};
+$('#tttNew').textContent=net?'New round · host only':'New round';
+$('#tttNew').disabled=net&&arcadeBt.role==='client';
+$('#tttNew').onclick=()=>newRound();
+$('#tttMode').textContent=net?'Leave Bluetooth':'Change mode';
+$('#tttMode').onclick=()=>{if(net)closeGame();else{cleanup();tttMode()}};
+render();active={
+ destroy(){clearTimeout(timer)},
+ bluetoothReceive(m){
+  if(!net)return;
+  if(m.type==='arcade_reset'&&arcadeBt.role==='client'&&m.round===round+1){newRound(true);return}
+  if(m.type==='arcade_move'&&m.round===round&&m.turn===turn&&turn!==localMark)move(m.index,true);
+ }
+};
 }
 // ─── CHECKERS: mandatory jumps, chain jumps, kings, CPU ────────────────────
 function startCheckers(cpu){
+const net=!!(arcadeBt?.started&&arcadeBt.game==='checkers');
+const localSide=net?(arcadeBt.role==='host'?'r':'b'):null;
 let b=Array(64).fill(null),turn='r',selected=-1,forced=-1,history=0,timer=0,over=false;
 for(let y=0;y<8;y++)for(let x=0;x<8;x++)if((x+y)%2===1&&(y<3||y>4))b[y*8+x]={side:y<3?'b':'r',king:false};
 area.innerHTML=`<div class="screen-layout strategy-v5 checkers-v5"><div class="game-status"><div><strong id="checkerTurn">Your turn · Red</strong><div class="hint" id="checkerHint">Tap a piece, then a highlighted square. Captures are compulsory.</div></div><span class="stat-chip" id="checkerCount">12 – 12</span></div><div class="checker-board" id="checkerBoard" role="group" aria-label="Checkers board"></div><div class="game-tools"><button class="secondary-button" id="checkerReset">New match</button><button class="secondary-button" id="checkerMode">Change mode</button></div></div>`;
 function allMoves(board,side,onlyFrom=-1,onlyJumps=false){let caps=[],normal=[];for(let i=0;i<64;i++){const p=board[i];if(!p||p.side!==side||(onlyFrom>=0&&onlyFrom!==i))continue;let x=i%8,y=(i/8)|0;const directions=p.king?[-1,1]:[side==='r'?-1:1];for(const dy of directions)for(const dx of [-1,1]){const xx=x+dx,yy=y+dy;if(xx<0||xx>7||yy<0||yy>7)continue;const to=yy*8+xx;if(board[to]===null){if(!onlyJumps)normal.push({from:i,to,jump:-1})}else if(board[to].side!==side){const nx=x+2*dx,ny=y+2*dy;if(nx>=0&&nx<8&&ny>=0&&ny<8&&board[ny*8+nx]===null)caps.push({from:i,to:ny*8+nx,jump:to})}}}return caps.length?caps:(onlyJumps?[]:normal)}
 function count(side){return b.filter(p=>p?.side===side).length}
-function render(){const legal=allMoves(b,turn,forced,forced>=0),targets=selected>=0?legal.filter(m=>m.from===selected).map(m=>m.to):[];$('#checkerBoard').innerHTML=b.map((p,i)=>{let dark=((i%8+Math.floor(i/8))%2===1);return`<button data-square="${i}" class="checker-cell ${dark?'dark':'light'} ${selected===i?'selected':''} ${targets.includes(i)?'target':''}" aria-label="${p?(p.side==='r'?'Red':'Blue')+(p.king?' king':' checker'):'Empty'} square ${String.fromCharCode(65+i%8)}${8-Math.floor(i/8)}" ${!dark?'tabindex="-1"':''}>${p?`<span class="checker-piece ${p.side==='r'?'red':'black'} ${p.king?'king':''}"></span>`:''}</button>`}).join('');$('#checkerTurn').textContent=over?'Match finished':`${cpu?(turn==='r'?'Your turn':'CPU turn'):(turn==='r'?'Red':'Blue')}${!cpu?' to play':''}${forced>=0?' · Jump again!':''}`;$('#checkerCount').textContent=`🔴 ${count('r')}  –  ${count('b')} 🔵`;$('#checkerHint').textContent=forced>=0?'Keep capturing with the same piece.':legal.some(m=>m.jump>=0)?'A capture is available — you must take it.':'Select a piece, then a highlighted square.'}
-function afterMove(m){const p=b[m.from];b[m.to]=p;b[m.from]=null;if(m.jump>=0)b[m.jump]=null;const row=(m.to/8)|0;const justCrowned=!p.king&&((p.side==='r'&&row===0)||(p.side==='b'&&row===7));if(justCrowned)p.king=true;selected=-1;forced=-1;history++;tone(m.jump>=0?680:425);if(m.jump>=0&&!justCrowned){const chain=allMoves(b,turn,m.to,true);if(chain.length){forced=m.to;selected=m.to;render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,380);return}}
-turn=turn==='r'?'b':'r';let next=allMoves(b,turn);if(!count(turn)||!next.length){over=true;const victor=turn==='r'?'Blue':'Red';render();showModal(`${victor} wins!`,`The other side has no legal moves. Match complete in ${history} moves.`,[{text:'Games',fn:closeGame},{text:'New match',primary:true,fn:()=>{cleanup();startCheckers(cpu)}}],'🏆');return}render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,420)}
+function render(){const legal=allMoves(b,turn,forced,forced>=0),targets=selected>=0?legal.filter(m=>m.from===selected).map(m=>m.to):[];$('#checkerBoard').innerHTML=b.map((p,i)=>{let dark=((i%8+Math.floor(i/8))%2===1);return`<button data-square="${i}" class="checker-cell ${dark?'dark':'light'} ${selected===i?'selected':''} ${targets.includes(i)?'target':''}" aria-label="${p?(p.side==='r'?'Red':'Blue')+(p.king?' king':' checker'):'Empty'} square ${String.fromCharCode(65+i%8)}${8-Math.floor(i/8)}" ${!dark?'tabindex="-1"':''}>${p?`<span class="checker-piece ${p.side==='r'?'red':'black'} ${p.king?'king':''}"></span>`:''}</button>`}).join('');$('#checkerTurn').textContent=over?'Match finished':net?(turn===localSide?'Your turn':'Friend’s turn')+(forced>=0?' · Jump again!':''):`${cpu?(turn==='r'?'Your turn':'CPU turn'):(turn==='r'?'Red':'Blue')}${!cpu?' to play':''}${forced>=0?' · Jump again!':''}`;$('#checkerCount').textContent=`🔴 ${count('r')}  –  ${count('b')} 🔵`;$('#checkerHint').textContent=forced>=0?'Keep capturing with the same piece.':legal.some(m=>m.jump>=0)?'A capture is available — you must take it.':'Select a piece, then a highlighted square.'}
+function afterMove(m,remote=false){
+ if(net&&!remote)sendArcadeBt({type:'arcade_move',game:'checkers',from:m.from,to:m.to,turn});
+ const p=b[m.from];b[m.to]=p;b[m.from]=null;if(m.jump>=0)b[m.jump]=null;const row=(m.to/8)|0;const justCrowned=!p.king&&((p.side==='r'&&row===0)||(p.side==='b'&&row===7));if(justCrowned)p.king=true;selected=-1;forced=-1;history++;tone(m.jump>=0?680:425);if(m.jump>=0&&!justCrowned){const chain=allMoves(b,turn,m.to,true);if(chain.length){forced=m.to;selected=m.to;render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,380);return}}
+turn=turn==='r'?'b':'r';let next=allMoves(b,turn);if(!count(turn)||!next.length){over=true;const victor=turn==='r'?'Blue':'Red';render();showModal(`${victor} wins!`,`The other side has no legal moves. Match complete in ${history} moves.`,[{text:'Games',fn:closeGame},net&&arcadeBt.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'New match',primary:true,fn:()=>restartCheckers()}],'🏆');return}render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,420)}
 function cpuMove(){timer=0;if(over||turn!=='b')return;const legal=allMoves(b,'b',forced,forced>=0);if(!legal.length)return;const scored=legal.map(m=>{let score=(m.jump>=0?8:0),p=b[m.from],row=(m.to/8)|0;score+=row*.45;if(row===7&&!p.king)score+=7;const copy=b.map(q=>q?{...q}:null);copy[m.to]=copy[m.from];copy[m.from]=null;if(m.jump>=0)copy[m.jump]=null;const enemyMoves=allMoves(copy,'r');score-=enemyMoves.filter(q=>q.jump===m.to).length*8;score+=rnd(0,2);return{m,score}}).sort((a,z)=>z.score-a.score);afterMove(scored[0].m)}
-$('#checkerBoard').onclick=e=>{const sq=e.target.closest('[data-square]');if(!sq||over||(cpu&&turn==='b'))return;const i=+sq.dataset.square;const legal=allMoves(b,turn,forced,forced>=0);if(selected>=0){const m=legal.find(m=>m.from===selected&&m.to===i);if(m){afterMove(m);return}}if(b[i]?.side===turn&&legal.some(m=>m.from===i)){selected=i;render()}else if(forced<0){selected=-1;render()}};
-$('#checkerReset').onclick=()=>{cleanup();startCheckers(cpu)};$('#checkerMode').onclick=()=>{cleanup();checkersMode()};render();active={destroy(){clearTimeout(timer)}};
+$('#checkerBoard').onclick=e=>{const sq=e.target.closest('[data-square]');if(!sq||over||(cpu&&turn==='b')||(net&&turn!==localSide))return;const i=+sq.dataset.square;const legal=allMoves(b,turn,forced,forced>=0);if(selected>=0){const m=legal.find(m=>m.from===selected&&m.to===i);if(m){afterMove(m);return}}if(b[i]?.side===turn&&legal.some(m=>m.from===i)){selected=i;render()}else if(forced<0){selected=-1;render()}};
+function restartCheckers(remote=false){
+ if(net&&!remote&&arcadeBt.role==='client')return;
+ if(net&&!remote)sendArcadeBt({type:'arcade_reset',game:'checkers'});
+ cleanup();startCheckers(cpu);
+}
+$('#checkerReset').textContent=net?'New match · host only':'New match';
+$('#checkerReset').disabled=net&&arcadeBt.role==='client';
+$('#checkerReset').onclick=()=>restartCheckers();
+$('#checkerMode').textContent=net?'Leave Bluetooth':'Change mode';
+$('#checkerMode').onclick=()=>{if(net)closeGame();else{cleanup();checkersMode()}};
+render();active={
+ destroy(){clearTimeout(timer)},
+ bluetoothReceive(m){
+  if(!net)return;
+  if(m.type==='arcade_reset'&&arcadeBt.role==='client'){restartCheckers(true);return}
+  if(m.type==='arcade_move'&&m.turn===turn&&turn!==localSide&&Number.isInteger(m.from)&&Number.isInteger(m.to)){
+   const legal=allMoves(b,turn,forced,forced>=0);
+   const move=legal.find(q=>q.from===m.from&&q.to===m.to);
+   if(move)afterMove(move,true);
+  }
+ }
+};
 }
 window.AACGames={open:openGame,close:closeGame,destroy:cleanup,version:'9.0.0'};
 })();
