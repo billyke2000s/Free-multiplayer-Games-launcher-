@@ -1,5 +1,22 @@
 # Changelog
 
+This file records meaningful published changes to AAC Playroom.
+
+## [2.2.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.0) — 2026-11-20
+
+**Native Bluetooth Classic multiplayer testing release.**
+
+### Added
+- Android Bluetooth Classic RFCOMM transport: discoverability, nearby + paired device discovery, secure pairing, hosting and connecting, runtime permissions, multiple peers, ordered messages and disconnect handling.
+- Bluetooth gameplay for 8-Ball Pool (strokes, ball placement and host-authoritative settled table synchronization), Tic-Tac-Toe and Checkers (remote turn-validated moves), and seven multiplayer card games.
+- Card game private-hand views, a host-controlled game room and automatic CPU replacement after a friend's disconnect.
+- Structural checks for the Android Java bridge, manifest and gameplay message handling.
+
+### Device testing needed
+- Test real Bluetooth connections between two or more Android devices, especially Android 6–11 discovery and Android 12+ Nearby devices permissions.
+- Validate pairing, card privacy, interrupted connections and pool physics resynchronization on actual hardware.
+- Offline/browser games and CPU modes remain supported; Solitaire and single-player arcade games do not have Bluetooth modes.
+
 ## [2.1.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0) — 2026-11-20
 
 **Universal Android test APK.**
@@ -12,8 +29,6 @@
 ### Testing notes
 - Touch controls and layout still need testing on physical phones, especially in landscape.
 - Release is debug-signed. Phone-to-phone Bluetooth multiplayer remains unimplemented.
-
-This file records meaningful published changes to AAC Playroom.
 
 ## [2.0.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0) — 2026-11-20
 
