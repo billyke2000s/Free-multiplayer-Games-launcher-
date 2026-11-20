@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.2.4](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.4) — 2026-11-20
+
+**Critical 8-Ball Pool black-screen startup hotfix.**
+
+### Fixed
+- v2.2.3 removed the arcade's local `tone` function but the pool launch wrapper still passed `tone` as a variable. Clicking a pool mode therefore threw a ReferenceError before the table appeared.
+- Removed the unused `tone` dependency from both the pool launcher and the pool game constructor.
+- Pool launch exceptions now display a recoverable error and Try again/Back controls rather than leaving an empty black screen.
+
+### New automated runtime coverage
+- Boots the actual pool engine, AI and renderer with a simulated Android-like DOM and canvas.
+- Checks initial table creation and rendering, pull-to-shoot interaction, rack collisions, sound callbacks and shot completion.
+- Preserves the sixteen game-specific sound palettes and pool momentum changes from v2.2.3.
+
+### Testing
+- Automated runtime and Android build tests run in CI. Physical Android-device verification remains pending.
+
+
 ## [2.2.3](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.3) — 2026-11-20
 
 **8-Ball Pool collision-freeze fix and individual sound design for all games.**
