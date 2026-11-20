@@ -29,21 +29,35 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug
-      - name: Publish installable APK in GitHub Releases
+      - name: Verify universal APK contains no architecture-specific native libraries
+        run: |
+          set -euo pipefail
+          APK=$(find android/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)
+          test -n "$APK"
+          if unzip -Z1 "$APK" | grep -E '^lib/[^/]+/.*[.]so$'; then
+            echo "::error::APK now contains native libraries. Review ABIs before calling it universal."
+            exit 1
+          fi
+          echo "Universal Java/WebView APK: no native ABI restrictions."
+      - name: Publish versioned universal APK in GitHub Releases
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          VERSION=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" android/app/build.gradle | head -1)
+          test -n "$VERSION"
+          TAG="v$VERSION"
           APK=$(find android/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)
           test -n "$APK"
-          cp "$APK" AAC-Playroom-v2.0.0-debug.apk
-          if gh release view v2.0.0 >/dev/null 2>&1; then
-            gh release upload v2.0.0 AAC-Playroom-v2.0.0-debug.apk --clobber
-          else
-            gh release create v2.0.0 AAC-Playroom-v2.0.0-debug.apk \
-              --target "$GITHUB_SHA" \
-              --title "AAC Playroom v2.0.0 — 16 games" \
-              --notes "Offline Android testing APK with 16 games. Debug-signed test build; no Bluetooth phone-to-phone gameplay yet." \
-              --prerelease
+          FILE="AAC-Playroom-${TAG}-universal-debug.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to re-upload the same version."
+            exit 0
           fi
+          cp "$APK" "$FILE"
+          gh release create "$TAG" "$FILE" \
+            --target "$GITHUB_SHA" \
+            --title "AAC Playroom $TAG — universal Android APK" \
+            --notes "Offline Android testing build supporting ARM32, ARM64, x86 and x86-64 from one universal APK (no native libraries). Includes updated 8-ball pool controls and Space Explorer joystick/four-edge asteroids. Debug-signed pre-release; physical-device testing and Bluetooth multiplayer are not complete." \
+            --prerelease
