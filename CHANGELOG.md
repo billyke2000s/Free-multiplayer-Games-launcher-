@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.2.3](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.3) — 2026-11-20
+
+**8-Ball Pool collision-freeze fix and individual sound design for all games.**
+
+### Fixed
+- Pool no longer calls an inaccessible sound function: the former `sfx()` scope error stopped requestAnimationFrame when a collision occurred.
+- Corrected over-damped pool cloth physics: breaks now spread balls, direct hits transfer momentum, and shots keep rolling smoothly.
+- Replaced the generic sound mapping with 16 game-specific banks, including realistic-style billiard clicks, wood checkers, paper cards, sci-fi lasers, rubber mole thumps, and arcade bounces.
+- Reduced high-pitched tones and overall gain; pooled collision sounds are rate-limited for crowded rack breaks.
+
+### Regression checks
+- Direct hit must separate two pool balls; a full rack break must meaningfully spread at least eight object balls.
+- Each of the 16 game palettes must generate its own sounds through the shared, correctly scoped WebAudio engine.
+- Per-device sound mute preference remains intact.
+
+### Device testing
+- Android touch-and-sound checks still require a real device; synthetic effects are not externally recorded samples.
+
+
 ## [2.2.2](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.2) — 2026-11-20
 
 **Sound effects across all 16 games.**
