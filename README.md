@@ -1,33 +1,28 @@
-<div align="center">
+<h1 align="center">🎮 AAC Playroom</h1>
+<p align="center"><strong>One launcher. Sixteen games. No internet required.</strong></p>
+<p align="center">A touchscreen-first collection of arcade, board and card games for Android and the browser.<br/>Made for quick games, family play and accessible, straightforward controls.</p>
 
-# 🎮 AAC Playroom
-
-### One launcher. Sixteen games. No internet required.
-
-**A touchscreen-first collection of arcade, board and card games for Android and the browser.**  
-Made for quick games, family play and accessible, straightforward controls.
-
-[![Version](https://img.shields.io/badge/version-2.0.0-6C63FF?style=for-the-badge)](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0)
-[![Games](https://img.shields.io/badge/games-16-28B99A?style=for-the-badge)](#the-game-library)
-[![Android](https://img.shields.io/badge/Android-6%2B-3DDC84?style=for-the-badge&logo=android&logoColor=black)](#android-installation)
-[![Offline](https://img.shields.io/badge/play-offline-1F2937?style=for-the-badge)](#what-it-does)
-
-[![Android build](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml)
-[![Release](https://img.shields.io/badge/release-testing%20APK-E0A449)](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0)
-[![JavaScript](https://img.shields.io/badge/engine-HTML5%20%2B%20JavaScript-F7DF1E?logo=javascript&logoColor=black)](index.html)
-
-**[⬇ Download Android APK](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.0.0/AAC-Playroom-v2.0.0-debug.apk)**
-&nbsp;·&nbsp;
-**[📦 Release page](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0)**
-&nbsp;·&nbsp;
-**[🌐 Web-app source](index.html)**
-&nbsp;·&nbsp;
-**[🔧 Builds](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml)**
-
-<sub>Note: “Web-app source” opens the HTML file on GitHub, not a hosted playable website. GitHub Pages is not enabled for this private repository.</sub>
-
-</div>
-
+<p align="center">
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0"><img alt="Version 2.0.0" src="https://img.shields.io/badge/version-2.0.0-6C63FF?style=for-the-badge"></a>
+  <a href="#the-game-library"><img alt="16 games" src="https://img.shields.io/badge/games-16-28B99A?style=for-the-badge"></a>
+  <a href="#android-installation"><img alt="Android 6+" src="https://img.shields.io/badge/Android-6%2B-3DDC84?style=for-the-badge&logo=android&logoColor=black"></a>
+  <a href="#at-a-glance"><img alt="Offline-first" src="https://img.shields.io/badge/play-offline-1F2937?style=for-the-badge"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml"><img alt="Android build" src="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0"><img alt="Testing release" src="https://img.shields.io/badge/release-testing%20APK-E0A449"></a>
+  <a href="index.html"><img alt="HTML5 and JavaScript" src="https://img.shields.io/badge/engine-HTML5%20%2B%20JavaScript-F7DF1E?logo=javascript&logoColor=black"></a>
+</p>
+<p align="center">
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.0.0/AAC-Playroom-v2.0.0-debug.apk">⬇ Download Android APK</a></strong>
+  &nbsp;·&nbsp;
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0">📦 Release page</a></strong>
+  &nbsp;·&nbsp;
+  <strong><a href="index.html">🌐 Web-app source</a></strong>
+  &nbsp;·&nbsp;
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml">🔧 Builds</a></strong>
+</p>
+<p align="center"><sub>“Web-app source” opens the HTML file on GitHub, not a hosted playable website. GitHub Pages is not enabled for this private repository.</sub></p>
 ---
 
 ## ✨ At a glance
