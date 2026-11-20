@@ -476,12 +476,12 @@ function endTurn(){resetShotPower();const pot=e.pocketed.slice(),tm=shooter?.tea
 const coloured=pot.filter(id=>id!==0&&id!==8),eight=pot.includes(8);
 shotCount++;
 if(practice){if(foulScratch){safePlaceCue();ballInHand=true;textStatus('Scratch — tap a clear spot for ball in hand.')}else{textStatus(`${pot.length?pot.length+' ball(s) pocketed. ':''}Ready for your next shot.`)}updateUI();return;}
-if(eight){const eligible=groups[tm]!==null&&ballsRemaining(tm)===0&&!foul;const winner=eligible?tm:1-tm;finished=true;const winningNames=players.filter(p=>p.team===winner).map(p=>p.name).join(' & ');textStatus(eligible?'8-ball pocketed legally.':'Early 8-ball or foul — opponent wins.');updateUI();showModal(`${winningNames} win!`,eligible?'Clean finish — all your object balls were cleared first.':'Under these house rules, pocketing the 8-ball early or while fouling loses the match.',[{text:'Games',fn:closeGame},bt?.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'Rack again',primary:true,fn:restart}],'🏆');syncPool();return;}
+if(eight){const eligible=groups[tm]!==null&&ballsRemaining(tm)===0&&!foul;const winner=eligible?tm:1-tm;finished=true;sfx('win');const winningNames=players.filter(p=>p.team===winner).map(p=>p.name).join(' & ');textStatus(eligible?'8-ball pocketed legally.':'Early 8-ball or foul — opponent wins.');updateUI();showModal(`${winningNames} win!`,eligible?'Clean finish — all your object balls were cleared first.':'Under these house rules, pocketing the 8-ball early or while fouling loses the match.',[{text:'Games',fn:closeGame},bt?.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'Rack again',primary:true,fn:restart}],'🏆');syncPool();return;}
 if(!foul&&groups[tm]===null&&coloured.length){groups[tm]=coloured[0]<8?'SOLIDS':'STRIPES';groups[1-tm]=groups[tm]==='SOLIDS'?'STRIPES':'SOLIDS';}
 const validPot=coloured.some(id=>groups[tm]===null|| (groups[tm]==='SOLIDS'?id<8:id>8));
-if(foul){changeTurn(false);safePlaceCue();ballInHand=true;textStatus(`${foulScratch?'SCRATCH':wrongFirst?'FOUL · WRONG FIRST CONTACT':'FOUL · NO RAIL'} — ${getActive().name} has ball in hand.`);}
-else if(validPot){changeTurn(true);textStatus(`${getActive().name} continues after a legal pot.`)}
-else{changeTurn(false);textStatus(`No legal pot — ${getActive().name} to play.`)}
+if(foul){sfx('wrong');changeTurn(false);safePlaceCue();ballInHand=true;textStatus(`${foulScratch?'SCRATCH':wrongFirst?'FOUL · WRONG FIRST CONTACT':'FOUL · NO RAIL'} — ${getActive().name} has ball in hand.`);}
+else if(validPot){changeTurn(true);sfx('score');textStatus(`${getActive().name} continues after a legal pot.`)}
+else{changeTurn(false);sfx('turn');textStatus(`No legal pot — ${getActive().name} to play.`)}
 updateUI();syncPool();if(getActive().cpu)cpuid=setTimeout(cpuTurn,650);
 }
 function shoot(angle,force,fromRemote=false,remoteSpin=null){
@@ -492,7 +492,7 @@ function shoot(angle,force,fromRemote=false,remoteSpin=null){
  shotSnapshot=practice?e.snapshot():null;shooter={...getActive()};
  if(e.shoot(angle,force,shotSpin)){
   if(bt&&!fromRemote)bt.send({type:'arcade_pool_shot',game:'pool',angle,force,spin:{x:shotSpin.x,y:shotSpin.y},shotCount});
-  resetShotPower();textStatus('Stroke delivered — watch the rolling balls.');updateUI();tone(185,60);
+  resetShotPower();textStatus('Stroke delivered — watch the rolling balls.');updateUI();sfx('shot');
  }
 }
 function aiPlacement(){if(!ballInHand)return;const position=root.PoolAIV6.selectBallInHand(e,groups[getTeam()]);if(!e.placeCue(position.x,position.y))safePlaceCue();ballInHand=false;}
@@ -506,7 +506,7 @@ async function cpuTurn(){cpuid=0;if(!getActive().cpu||finished||e.shotRunning)re
   }
   resetShotPower();tip={x:0,y:selection?.spin||0};shooter={...getActive()};
   textStatus(`${shooter.name} chose ${selection?.kind||'a safety'} shot (${selection?.evaluated||0} simulated options).`);
-  e.shoot(angle,pwr,tip);resetShotPower();updateUI();tone(190,55);
+  e.shoot(angle,pwr,tip);resetShotPower();updateUI();sfx('shot');
 }
 function setPowerPreview(value){
  power=clamp(value,0,1);
@@ -712,7 +712,7 @@ function render(){ctx.setTransform(2,0,0,2,0,0);ctx.clearRect(0,0,1000,520); // 
 
 }
 let processed=0;
-function frame(now){const dt=Math.min(.06,(now-(last||now))/1000);last=now;if(e.shotRunning){e.update(dt);if(e.events.length!==processed){for(let i=processed;i<e.events.length;i++){const ev=e.events[i];if(ev.type==='collision'&&ev.speed>40)tone(300,22);if(ev.type==='pocket')tone(ev.id===0?150:710,60)}processed=e.events.length;}}
+function frame(now){const dt=Math.min(.06,(now-(last||now))/1000);last=now;if(e.shotRunning){e.update(dt);if(e.events.length!==processed){for(let i=processed;i<e.events.length;i++){const ev=e.events[i];if(ev.type==='collision'&&ev.speed>40)sfx('hit');if(ev.type==='pocket')sfx(ev.id===0?'wrong':'pocket')}processed=e.events.length;}}
  if(!e.shotRunning&&buttonsFrozen){buttonsFrozen=false;endTurn();}
  if(e.shotRunning)buttonsFrozen=true;
  render();raf=requestAnimationFrame(frame)}
@@ -747,6 +747,89 @@ root.PoolGameV4={start};
 })(typeof globalThis!=='undefined'?globalThis:this);
 
 </script>
+<script id="aac-sound-engine">
+/* Offline procedural sound effects shared by ALL games and the Card Club
+ * Shadow DOM. One WebAudio context. No remote sound files or dependencies.
+ * Sound ON by default; user mute setting persists across launches. */
+(function(root){'use strict';
+const KEY='aac-playroom-sfx-v1',last=Object.create(null);
+let enabled=true,ctx=null,output=null,noiseBuffer=null;
+try{let saved=localStorage.getItem(KEY);if(saved!==null)enabled=saved==='on'}catch{}
+function ensure(){
+ const C=root.AudioContext||root.webkitAudioContext;
+ if(!C)return null;
+ if(!ctx){ctx=new C();output=ctx.createGain();output.gain.value=.65;output.connect(ctx.destination)}
+ return ctx;
+}
+function withAudio(fn){
+ if(!enabled)return;
+ try{const c=ensure();if(!c)return;
+  if(c.state==='running')fn(c);
+  else if(c.state==='suspended')c.resume().then(()=>{if(enabled&&c.state==='running')fn(c)}).catch(()=>{});
+ }catch{}
+}
+function note(c,f,d=.07,type='triangle',volume=.04,end=1,delay=0){
+ const t=c.currentTime+delay,finish=t+Math.max(.025,d),o=c.createOscillator(),g=c.createGain();
+ o.type=type;o.frequency.setValueAtTime(Math.max(40,f),t);
+ if(end!==1)o.frequency.exponentialRampToValueAtTime(Math.max(40,f*end),finish);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.001,volume),t+.008);
+ g.gain.exponentialRampToValueAtTime(.0001,finish);o.connect(g);g.connect(output);o.start(t);o.stop(finish+.01);
+}
+function rustle(c,d=.065,volume=.035,cutoff=2600){
+ if(!noiseBuffer){noiseBuffer=c.createBuffer(1,Math.floor(c.sampleRate*.2),c.sampleRate);
+  const data=noiseBuffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1}
+ const t=c.currentTime,src=c.createBufferSource(),filter=c.createBiquadFilter(),g=c.createGain();
+ src.buffer=noiseBuffer;filter.type='lowpass';filter.frequency.value=cutoff;
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(volume,t+.008);
+ g.gain.exponentialRampToValueAtTime(.0001,t+Math.min(.19,d));
+ src.connect(filter);filter.connect(g);g.connect(output);src.start(t);src.stop(t+Math.min(.19,d)+.01);
+}
+function play(type='tap'){
+ if(!enabled)return;
+ let now=Date.now(),gaps={laser:135,bounce:65,hit:40,card:65,select:45,flip:60};
+ if(gaps[type]&&now-(last[type]||0)<gaps[type])return;last[type]=now;
+ withAudio(c=>{
+  switch(type){
+   case'tap':case'select':note(c,740,.045,'sine',.033,.84);break;
+   case'button':note(c,680,.055,'sine',.04,1.12);break;
+   case'card':rustle(c,.07,.04,2400);note(c,400,.04,'triangle',.018,.85);break;
+   case'draw':rustle(c,.12,.05,2000);note(c,480,.09,'triangle',.022,.7);break;
+   case'flip':rustle(c,.048,.032,3600);note(c,630,.043,'triangle',.034,1.18);break;
+   case'shuffle':rustle(c,.18,.065,2400);note(c,410,.08,'triangle',.03,1.34);break;
+   case'place':note(c,430,.08,'triangle',.07,.72);rustle(c,.035,.02,1400);break;
+   case'hit':note(c,310,.05,'triangle',.05,.72);rustle(c,.027,.018,1200);break;
+   case'bounce':note(c,470,.052,'triangle',.055,.72);break;
+   case'shot':note(c,180,.14,'triangle',.10,.48);rustle(c,.064,.04,1250);break;
+   case'laser':note(c,980,.053,'sawtooth',.022,.54);break;
+   case'pocket':note(c,760,.10,'sine',.07,.8);note(c,450,.14,'sine',.05,.72,.07);break;
+   case'score':note(c,620,.083,'sine',.055,1.12);note(c,820,.12,'sine',.057,1.06,.085);break;
+   case'match':note(c,750,.09,'sine',.06,1.12);note(c,1020,.145,'sine',.065,1.02,.085);break;
+   case'snap':rustle(c,.068,.09,3600);note(c,490,.16,'square',.045,.62);break;
+   case'capture':note(c,380,.10,'triangle',.065,.65);note(c,620,.12,'sine',.046,1.2,.05);break;
+   case'crown':note(c,680,.13,'sine',.064,1.04);note(c,930,.17,'sine',.065,1.05,.11);break;
+   case'damage':case'wrong':note(c,235,.17,'sawtooth',.05,.52);break;
+   case'turn':note(c,530,.085,'sine',.045,1.17);break;
+   case'win':[540,700,875,1120].forEach((f,i)=>note(c,f,.19,'sine',.075,1.04,i*.12));break;
+   case'lose':[470,340,225].forEach((f,i)=>note(c,f,.17,'triangle',.065,.9,i*.13));break;
+   default:note(c,550,.07,'sine',.04);break;
+  }
+ });
+}
+function tone(freq=500,ms=65){
+ withAudio(c=>note(c,Math.max(60,Math.min(2300,Number(freq)||500)),Math.max(.025,Math.min(.3,(Number(ms)||65)/1000)),'sine',.055,.95));
+}
+function setEnabled(value){
+ enabled=!!value;try{localStorage.setItem(KEY,enabled?'on':'off')}catch{}
+ if(enabled)play('button');root.dispatchEvent(new Event('aac-soundchange'));return enabled;
+}
+function unlock(){if(!enabled)return;try{const c=ensure();if(c?.state==='suspended')c.resume().catch(()=>{})}catch{}}
+document.addEventListener('pointerdown',unlock,{capture:true,passive:true});
+document.addEventListener('touchstart',unlock,{capture:true,passive:true});
+document.addEventListener('keydown',unlock,{capture:true});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)unlock()});
+root.AACSound={play,tone,setEnabled,unlock,get enabled(){return enabled}};
+})(window);
+</script>
 <script>
 /** AAC GAMES — offline HTML5 collection.
  * Entry points: window.AACGames.open(id), .close(), .destroy().
@@ -756,11 +839,22 @@ root.PoolGameV4={start};
 (()=>{'use strict';
 const $=s=>document.querySelector(s), area=$('#gameArea'), title=$('#gameTitle'), label=$('#gameLabel');
 const library=$('#library'), screen=$('#playScreen'), modal=$('#modalLayer');
-let active=null, currentId=null, sound=false, audio=null, arcadeBt=null;
+let active=null, currentId=null, arcadeBt=null;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rnd=(a,b)=>a+Math.random()*(b-a),choice=a=>a[Math.floor(Math.random()*a.length)];
-function tone(f=500,ms=65){if(!sound)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.035,audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+ms/1000);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+ms/1000)}catch{}}
-function syncSound(){for(const b of [$('#soundButton'),$('#soundGameBtn')]){b.setAttribute('aria-label',sound?'Mute sounds':'Turn sound on');b.setAttribute('aria-pressed',String(sound));b.textContent=sound?'♫':'♪';} }
-$('#soundButton').onclick=$('#soundGameBtn').onclick=()=>{sound=!sound;syncSound();tone()};syncSound();
+const sfx=name=>window.AACSound?.play(name);
+function tone(f=500,ms=65){window.AACSound?.tone(f,ms)}
+function syncSound(){
+ const enabled=!!window.AACSound?.enabled;
+ for(const b of [$('#soundButton'),$('#soundGameBtn')]){
+  if(!b)continue;
+  b.setAttribute('aria-label',enabled?'Mute sound effects':'Enable sound effects');
+  b.setAttribute('aria-pressed',String(enabled));
+  b.textContent=enabled?'♫':'♪';
+ }
+}
+$('#soundButton').onclick=$('#soundGameBtn').onclick=()=>window.AACSound?.setEnabled(!window.AACSound.enabled);
+window.addEventListener('aac-soundchange',syncSound);
+syncSound();
 const icons={
  star:'<path d="M40 6l10 23 25 2-19 16 6 26-22-13-22 13 6-26L5 31l25-2z" fill="#ffcf76" stroke="#ffe4ad" stroke-width="3"/><path d="M20 79h40" stroke="#91e2d2" stroke-width="6" stroke-linecap="round"/>',
  space:'<path d="M40 7Q18 27 25 65L40 52l15 13Q63 27 40 7" fill="#a1e0e7" stroke="#e4fcff" stroke-width="3"/><circle cx="40" cy="34" r="9" fill="#1e5e7e"/><path d="M25 55L12 66h16M55 55l13 11H52" fill="#ffb47c"/><path d="M35 62l5 14 5-14" fill="#ffd678"/>',
@@ -938,7 +1032,7 @@ const canvas=$('#arcCanvas'),ctx=canvas.getContext('2d'),shell=$('#arcShell'),he
 function resize(){const r=shell.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);if(!r.width||!r.height)return;const previousH=H,newH=W*r.height/r.width;if(Math.abs(newH-H)<.2&&canvas.width)return;canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);H=newH;if(id==='space')s.playerY=clamp(s.playerY*H/Math.max(1,previousH),80,Math.max(80,H-46));ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);s.playerX=clamp(s.playerX,48,W-48);if(id==='brick'&&s.ball){initBricks(true,previousH)}else if(s.ball?.stuck){s.ball.x=s.playerX;s.ball.y=H-116}}
 const ro=new ResizeObserver(resize);ro.observe(shell);resize();
 function status(){const lifeCount=(id==='target'||id==='mole')?`🔥 ${s.combo} combo`:`♥ ${'●'.repeat(Math.max(0,s.lives))}`;$('#scoreNumber').textContent=s.score.toLocaleString();$('#lifeNumber').textContent=lifeCount;$('#timeNumber').textContent=`⏱ ${Math.max(0,Math.ceil(s.time))}s`;$('#bestNumber').textContent=`BEST ${Math.max(s.score,getBest(id)).toLocaleString()}`;if(id==='brick'){$('#launchArc').hidden=!s.ball.stuck}}
-function finish(reason){if(ended)return;ended=true;const score=s.score;const previous=getBest(id);if(score>previous){saveBest(id,score)}showModal(reason,`You scored ${score.toLocaleString()} points${id==='brick'?' and reached level '+s.level:''}. Ready for another go?`,[{text:'Games',fn:closeGame},{text:'Play again',primary:true,fn:()=>{cleanup();startArcade(id)}}],score>200?'🏆':'✨')}
+function finish(reason){if(ended)return;ended=true;const score=s.score;const previous=getBest(id);if(score>previous){saveBest(id,score)}sfx(score>previous&&score>0?'win':'lose');showModal(reason,`You scored ${score.toLocaleString()} points${id==='brick'?' and reached level '+s.level:''}. Ready for another go?`,[{text:'Games',fn:closeGame},{text:'Play again',primary:true,fn:()=>{cleanup();startArcade(id)}}],score>200?'🏆':'✨')}
 const colors=['#f2b472','#75d7d7','#e79cb7'];
 function arcadeBG(){
 const schemes={space:['#030916','#071e44','#1d3461'],brick:['#150e32','#101843','#111f5c'],target:['#0b0d19','#16213f','#171f39'],lanes:['#090a1e','#171442','#24123d'],mole:['#1b562b','#2c7937','#65a645']};
@@ -950,8 +1044,8 @@ if(id==='mole'){const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'
 }
 function pillRect(x,y,w,h,color,r=15){ctx.fillStyle=color;roundRect(ctx,x,y,w,h,r);ctx.fill()}
 function particle(x,y,r,color){ctx.save();ctx.shadowColor=color;ctx.shadowBlur=18;ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore()}
-function scoreUp(v,x=s.playerX,y=H*.55){s.score+=v;s.combo++;burst(x,y,'#ffe495',10);tone(460+Math.min(600,s.combo*35),60);status()}
-function hurt(){s.combo=0;s.lives--;s.shake=10;burst(s.playerX,id==='space'?s.playerY:H-100,'#ff688a',16);tone(170,130);status();if(s.lives<=0)finish('Game over')}
+function scoreUp(v,x=s.playerX,y=H*.55){s.score+=v;s.combo++;burst(x,y,'#ffe495',10);sfx('score');status()}
+function hurt(){s.combo=0;s.lives--;s.shake=10;burst(s.playerX,id==='space'?s.playerY:H-100,'#ff688a',16);sfx('damage');status();if(s.lives<=0)finish('Game over')}
 function burst(x,y,color,n=12){for(let k=0;k<n;k++){const a=Math.random()*Math.PI*2,speed=rnd(60,320);s.fx.push({x,y,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,life:rnd(.25,.85),max:.85,color,r:rnd(2,7)})}if(typeof navigator!=='undefined'&&navigator.vibrate)navigator.vibrate(8)}
 function drawFx(){ctx.save();for(const f of s.fx){ctx.globalAlpha=Math.max(0,f.life/f.max);ctx.fillStyle=f.color;ctx.shadowBlur=12;ctx.shadowColor=f.color;ctx.beginPath();ctx.arc(f.x,f.y,f.r*Math.max(.2,f.life/f.max),0,Math.PI*2);ctx.fill()}ctx.restore()}
 function spawnObj(){if(id==='space'){
@@ -1047,7 +1141,7 @@ if(id==='space'){
   s.shipAngle=angle+Math.PI/2;
   if(s.shotTick>.17){
    s.shotTick=0;
-   s.shots.push({x:s.playerX+Math.cos(angle)*33,y:s.playerY+Math.sin(angle)*33,vx:Math.cos(angle)*940,vy:Math.sin(angle)*940});
+   s.shots.push({x:s.playerX+Math.cos(angle)*33,y:s.playerY+Math.sin(angle)*33,vx:Math.cos(angle)*940,vy:Math.sin(angle)*940});sfx('laser');
   }
  }
  for(const b of s.shots){b.x+=b.vx*dt;b.y+=b.vy*dt}
@@ -1069,7 +1163,7 @@ else if(id==='brick'){
  const main=s.ball;
  if(main.stuck){
    s.launchWait=(s.launchWait||0)+dt;
-   if(s.launchWait>1.85){main.stuck=false;s.launchWait=0;tone(620);status()}
+   if(s.launchWait>1.85){main.stuck=false;s.launchWait=0;sfx('shot');status()}
  }
  if(!main.stuck){
    s.bonusClock=(s.bonusClock||0)+dt;
@@ -1087,12 +1181,12 @@ else if(id==='brick'){
        if(b.stuck)continue;
        const oldX=b.x,oldY=b.y;
        b.x+=b.vx*stepDt;b.y+=b.vy*stepDt;
-       if(b.x<=b.r||b.x>=W-b.r){b.vx*=-1;b.x=clamp(b.x,b.r,W-b.r)}
-       if(b.y<s.brickTop-7){b.vy=Math.abs(b.vy);b.y=s.brickTop-7}
+       if(b.x<=b.r||b.x>=W-b.r){b.vx*=-1;b.x=clamp(b.x,b.r,W-b.r);sfx('bounce')}
+       if(b.y<s.brickTop-7){b.vy=Math.abs(b.vy);b.y=s.brickTop-7;sfx('bounce')}
        const paddleY=s.brickBottom-28;
        if(b.vy>0&&oldY+b.r<=paddleY+7&&b.y+b.r>=paddleY&&Math.abs(b.x-s.playerX)<75+b.r){
          b.y=paddleY-b.r;b.vy=-clamp(Math.max(s.brickSpeed*.85,Math.abs(b.vy)),s.brickSpeed*.85,s.brickSpeed*1.15);
-         b.vx=clamp((b.x-s.playerX)*6.5+b.vx*.15,-505,505);tone(395);
+         b.vx=clamp((b.x-s.playerX)*6.5+b.vx*.15,-505,505);sfx('bounce');
        }
        for(const o of s.objects){
          if(!o.hp||b.x+b.r<o.x||b.x-b.r>o.x+o.w||b.y+b.r<o.y||b.y-b.r>o.y+o.h)continue;
@@ -1132,9 +1226,9 @@ else if(id==='brick'){
    if(s.objects.length===0){s.level++;initBricks();s.time=Math.min(s.time+25,180)}
  }else{main.x=s.playerX;main.y=s.brickBottom-47}
 }
-else if(id==='target'){if(!s.objects.length){spawnObj()}const o=s.objects[0];o.age+=dt;if(o.age>=o.life){s.combo=0;s.miss++;s.objects=[];tone(180);status()}}
+else if(id==='target'){if(!s.objects.length){spawnObj()}const o=s.objects[0];o.age+=dt;if(o.age>=o.life){s.combo=0;s.miss++;s.objects=[];sfx('wrong');status()}}
 else if(id==='lanes'){if(spawn>.9){spawn=0;spawnObj()}for(const o of s.objects){o.y+=o.vy*dt;if(o.y>H-75){o.dead=true;hurt()}}s.objects=s.objects.filter(o=>!o.dead)}
-else if(id==='mole'){if(!s.objects.length)spawnObj();const o=s.objects[0];o.age+=dt;if(o.age>o.life){s.objects=[];s.combo=0;status()}}
+else if(id==='mole'){if(!s.objects.length)spawnObj();const o=s.objects[0];o.age+=dt;if(o.age>o.life){s.objects=[];s.combo=0;sfx('wrong');status()}}
 if(Math.floor(s.time*4)!==Math.floor((s.time+dt)*4))status()}
 function draw(){ctx.save();arcadeBG();if(s.shake){ctx.translate(rnd(-s.shake,s.shake),rnd(-s.shake,s.shake))}const f=ctx;
 if(id==='space'){for(const o of s.objects){ctx.save();ctx.translate(o.x,o.y);ctx.rotate(o.rot);ctx.fillStyle='#7b9baf';ctx.strokeStyle='#a9cfda';ctx.lineWidth=4;ctx.beginPath();for(let i=0;i<9;i++){let a=i*Math.PI*2/9;let r=o.r*(i%3===0?.78:1);ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r)}ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#31445b';ctx.beginPath();ctx.arc(-6,-6,o.r*.2,0,7);ctx.fill();ctx.fillStyle='#263e53';ctx.beginPath();ctx.arc(o.r*.3,o.r*.25,o.r*.15,0,7);ctx.arc(-o.r*.38,o.r*.14,o.r*.2,0,7);ctx.fill();ctx.restore()}for(const b of s.shots){ctx.save();ctx.translate(b.x,b.y);ctx.rotate(Math.atan2(b.vy,b.vx)+Math.PI/2);pillRect(-4,-20,8,28,'#81ffff',4);ctx.restore()}ctx.save();ctx.translate(s.playerX,s.playerY);ctx.rotate(s.shipAngle||0);ctx.globalAlpha=s.invuln>0&&Math.floor(s.invuln*13)%2?.4:1;ctx.shadowColor='#6ee9eb';ctx.shadowBlur=21;ctx.fillStyle='#a5eaf1';ctx.beginPath();ctx.moveTo(0,-38);ctx.lineTo(31,27);ctx.lineTo(0,15);ctx.lineTo(-31,27);ctx.closePath();ctx.fill();ctx.fillStyle='#ecb977';ctx.beginPath();ctx.moveTo(-11,24);ctx.lineTo(0,49);ctx.lineTo(11,24);ctx.fill();ctx.fillStyle='#295f79';ctx.beginPath();ctx.arc(0,0,12,0,7);ctx.fill();ctx.restore()}
@@ -1209,10 +1303,10 @@ else if(id==='mole'){
 }
 drawFx();ctx.restore();}
 function tap(x,y){if(ended||paused)return;
-if(id==='brick'){s.playerX=clamp(x,60,W-60);if(s.ball.stuck){s.ball.stuck=false;tone(700)}return}
-if(id==='target'){const o=s.objects[0];if(o&&Math.hypot(x-o.x,y-o.y)<=o.r+16){scoreUp(10+Math.min(10,s.combo)*3+Math.round((1-o.age/o.life)*10),o.x,o.y);s.objects=[]}else{s.combo=0;tone(180);status()}}
+if(id==='brick'){s.playerX=clamp(x,60,W-60);if(s.ball.stuck){s.ball.stuck=false;sfx('shot')}return}
+if(id==='target'){const o=s.objects[0];if(o&&Math.hypot(x-o.x,y-o.y)<=o.r+16){scoreUp(10+Math.min(10,s.combo)*3+Math.round((1-o.age/o.life)*10),o.x,o.y);s.objects=[]}else{s.combo=0;sfx('wrong');status()}}
 if(id==='mole'){const o=s.objects[0];if(o){const {x:cx,y:cy,cell}=moleLayout(o.i);if(Math.abs(x-cx)<cell*.46&&Math.abs(y-(cy-cell*.12))<cell*.44){o.bad?(s.combo=0,s.score=Math.max(0,s.score-10),tone(180)):scoreUp(15+Math.min(10,s.combo)*2,cx,cy);s.objects=[];status()}}}}
-function matchColor(col){if(ended||paused)return;let candidates=s.objects.filter(o=>!o.dead&&o.y>H-260&&o.y<H-80).sort((a,b)=>Math.abs(a.y-(H-154))-Math.abs(b.y-(H-154)));const o=candidates[0];if(o&&o.color===col){o.dead=true;scoreUp(15+Math.min(s.combo,10)*2,(o.lane+.5)*W/3,o.y)}else{s.combo=0;s.score=Math.max(0,s.score-5);tone(180);status()}s.objects=s.objects.filter(o=>!o.dead)}
+function matchColor(col){if(ended||paused)return;let candidates=s.objects.filter(o=>!o.dead&&o.y>H-260&&o.y<H-80).sort((a,b)=>Math.abs(a.y-(H-154))-Math.abs(b.y-(H-154)));const o=candidates[0];if(o&&o.color===col){o.dead=true;scoreUp(15+Math.min(s.combo,10)*2,(o.lane+.5)*W/3,o.y)}else{s.combo=0;s.score=Math.max(0,s.score-5);sfx('wrong');status()}s.objects=s.objects.filter(o=>!o.dead)}
 function xy(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H}}
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();const p=xy(e);tap(p.x,p.y);if(id==='brick')canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(e.buttons&&id==='brick'){const p=xy(e);s.playerX=clamp(p.x,60,W-60)}});
 function onSpaceKeyDown(ev){
@@ -1240,7 +1334,7 @@ if(id==='space'){
  window.addEventListener('keyup',onSpaceKeyUp);
 }
 $('#pauseArc').onclick=()=>{paused=!paused;$('#pauseArc').textContent=paused?'▶':'Ⅱ';$('#gameInstruction').textContent=paused?'Game paused. Press Resume to continue.':c.tip};
-if(id==='brick')$('#launchArc').onclick=()=>{s.ball.stuck=false;s.launchWait=0;tone(700);status()};
+if(id==='brick')$('#launchArc').onclick=()=>{s.ball.stuck=false;s.launchWait=0;sfx('shot');status()};
 if(id==='lanes')area.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>matchColor(+b.dataset.color));
 function frame(ms){const dt=Math.min(.05,(ms-(last||ms))/1000);last=ms;update(dt);draw();raf=requestAnimationFrame(frame)}raf=requestAnimationFrame(frame);status();
 active={destroy(){cancelAnimationFrame(raf);ro.disconnect();window.removeEventListener('keydown',onSpaceKeyDown);window.removeEventListener('keyup',onSpaceKeyUp)}};
@@ -1263,7 +1357,7 @@ function newRound(remote=false){
 function move(i,remote=false){
  if(!Number.isInteger(i)||i<0||i>=9||done||board[i]||(net&&!remote&&turn!==localMark))return;
  if(net&&!remote)sendArcadeBt({type:'arcade_move',game:'ttt',index:i,turn,round});
- board[i]=turn;tone(turn==='X'?590:440);const v=verdict(board);if(v){done=true;if(v.winner!=='draw')wins[v.winner==='X'?0:1]++;render();timer=setTimeout(()=>showModal(v.winner==='draw'?'It’s a draw!':(v.winner==='X'?(cpu?'You win!':'Player 1 wins!'):(cpu?'CPU wins!':'Player 2 wins!')),`Round ${round} complete. X ${wins[0]} – ${wins[1]} O`,[{text:'Games',fn:closeGame},net&&arcadeBt.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'Next round',primary:true,fn:()=>newRound()}],v.winner==='draw'?'🤝':'🏆'),250);return}turn=turn==='X'?'O':'X';render();if(cpu&&turn==='O'){timer=setTimeout(()=>{if(done)return;let best=-Infinity,options=[];for(let j=0;j<9;j++)if(!board[j]){board[j]='O';let value=minimax(board,'X',1);board[j]='';if(value>best){best=value;options=[j]}else if(value===best)options.push(j)}if(options.length)move(choice(options))},460)}}
+ board[i]=turn;sfx('place');const v=verdict(board);if(v){done=true;sfx(v.winner==='draw'?'turn':'win');if(v.winner!=='draw')wins[v.winner==='X'?0:1]++;render();timer=setTimeout(()=>showModal(v.winner==='draw'?'It’s a draw!':(v.winner==='X'?(cpu?'You win!':'Player 1 wins!'):(cpu?'CPU wins!':'Player 2 wins!')),`Round ${round} complete. X ${wins[0]} – ${wins[1]} O`,[{text:'Games',fn:closeGame},net&&arcadeBt.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'Next round',primary:true,fn:()=>newRound()}],v.winner==='draw'?'🤝':'🏆'),250);return}turn=turn==='X'?'O':'X';render();if(cpu&&turn==='O'){timer=setTimeout(()=>{if(done)return;let best=-Infinity,options=[];for(let j=0;j<9;j++)if(!board[j]){board[j]='O';let value=minimax(board,'X',1);board[j]='';if(value>best){best=value;options=[j]}else if(value===best)options.push(j)}if(options.length)move(choice(options))},460)}}
 $('#tttBoard').onclick=e=>{const cell=e.target.closest('[data-tile]');if(cell&&(!cpu||turn==='X')&&(!net||turn===localMark))move(+cell.dataset.tile)};
 $('#tttNew').textContent=net?'New round · host only':'New round';
 $('#tttNew').disabled=net&&arcadeBt.role==='client';
@@ -1291,8 +1385,8 @@ function count(side){return b.filter(p=>p?.side===side).length}
 function render(){const legal=allMoves(b,turn,forced,forced>=0),targets=selected>=0?legal.filter(m=>m.from===selected).map(m=>m.to):[];$('#checkerBoard').innerHTML=b.map((p,i)=>{let dark=((i%8+Math.floor(i/8))%2===1);return`<button data-square="${i}" class="checker-cell ${dark?'dark':'light'} ${selected===i?'selected':''} ${targets.includes(i)?'target':''}" aria-label="${p?(p.side==='r'?'Red':'Blue')+(p.king?' king':' checker'):'Empty'} square ${String.fromCharCode(65+i%8)}${8-Math.floor(i/8)}" ${!dark?'tabindex="-1"':''}>${p?`<span class="checker-piece ${p.side==='r'?'red':'black'} ${p.king?'king':''}"></span>`:''}</button>`}).join('');$('#checkerTurn').textContent=over?'Match finished':net?(turn===localSide?'Your turn':'Friend’s turn')+(forced>=0?' · Jump again!':''):`${cpu?(turn==='r'?'Your turn':'CPU turn'):(turn==='r'?'Red':'Blue')}${!cpu?' to play':''}${forced>=0?' · Jump again!':''}`;$('#checkerCount').textContent=`🔴 ${count('r')}  –  ${count('b')} 🔵`;$('#checkerHint').textContent=forced>=0?'Keep capturing with the same piece.':legal.some(m=>m.jump>=0)?'A capture is available — you must take it.':'Select a piece, then a highlighted square.'}
 function afterMove(m,remote=false){
  if(net&&!remote)sendArcadeBt({type:'arcade_move',game:'checkers',from:m.from,to:m.to,turn});
- const p=b[m.from];b[m.to]=p;b[m.from]=null;if(m.jump>=0)b[m.jump]=null;const row=(m.to/8)|0;const justCrowned=!p.king&&((p.side==='r'&&row===0)||(p.side==='b'&&row===7));if(justCrowned)p.king=true;selected=-1;forced=-1;history++;tone(m.jump>=0?680:425);if(m.jump>=0&&!justCrowned){const chain=allMoves(b,turn,m.to,true);if(chain.length){forced=m.to;selected=m.to;render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,380);return}}
-turn=turn==='r'?'b':'r';let next=allMoves(b,turn);if(!count(turn)||!next.length){over=true;const victor=turn==='r'?'Blue':'Red';render();showModal(`${victor} wins!`,`The other side has no legal moves. Match complete in ${history} moves.`,[{text:'Games',fn:closeGame},net&&arcadeBt.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'New match',primary:true,fn:()=>restartCheckers()}],'🏆');return}render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,420)}
+ const p=b[m.from];b[m.to]=p;b[m.from]=null;if(m.jump>=0)b[m.jump]=null;const row=(m.to/8)|0;const justCrowned=!p.king&&((p.side==='r'&&row===0)||(p.side==='b'&&row===7));if(justCrowned)p.king=true;selected=-1;forced=-1;history++;sfx(justCrowned?'crown':m.jump>=0?'capture':'place');if(m.jump>=0&&!justCrowned){const chain=allMoves(b,turn,m.to,true);if(chain.length){forced=m.to;selected=m.to;render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,380);return}}
+turn=turn==='r'?'b':'r';let next=allMoves(b,turn);if(!count(turn)||!next.length){over=true;sfx('win');const victor=turn==='r'?'Blue':'Red';render();showModal(`${victor} wins!`,`The other side has no legal moves. Match complete in ${history} moves.`,[{text:'Games',fn:closeGame},net&&arcadeBt.role==='client'?{text:'Wait for host',fn:closeModal}:{text:'New match',primary:true,fn:()=>restartCheckers()}],'🏆');return}render();if(cpu&&turn==='b')timer=setTimeout(cpuMove,420)}
 function cpuMove(){timer=0;if(over||turn!=='b')return;const legal=allMoves(b,'b',forced,forced>=0);if(!legal.length)return;const scored=legal.map(m=>{let score=(m.jump>=0?8:0),p=b[m.from],row=(m.to/8)|0;score+=row*.45;if(row===7&&!p.king)score+=7;const copy=b.map(q=>q?{...q}:null);copy[m.to]=copy[m.from];copy[m.from]=null;if(m.jump>=0)copy[m.jump]=null;const enemyMoves=allMoves(copy,'r');score-=enemyMoves.filter(q=>q.jump===m.to).length*8;score+=rnd(0,2);return{m,score}}).sort((a,z)=>z.score-a.score);afterMove(scored[0].m)}
 $('#checkerBoard').onclick=e=>{const sq=e.target.closest('[data-square]');if(!sq||over||(cpu&&turn==='b')||(net&&turn!==localSide))return;const i=+sq.dataset.square;const legal=allMoves(b,turn,forced,forced>=0);if(selected>=0){const m=legal.find(m=>m.from===selected&&m.to===i);if(m){afterMove(m);return}}if(b[i]?.side===turn&&legal.some(m=>m.from===i)){selected=i;render()}else if(forced<0){selected=-1;render()}};
 function restartCheckers(remote=false){
@@ -1529,6 +1623,24 @@ const titles={crazy:'Crazy Eights',fish:'Go Fish',memory:'Memory Match',snap:'Sn
 const desc={crazy:'Colour action cards · 2–4',fish:'Ask, collect, make books · 2–4',memory:'Find the matching pairs · 1–4',snap:'Fast matching action · 2–4',solitaire:'Classic Klondike · solo',rummy:'Sets, runs and tactics · 2–4',spades:'Partnership strategy · 4',war:'Classic highest-card battle · 2'};
 const colours={crazy:['#1e7184','#0c3c5e'],fish:['#4c9eaa','#12606a'],memory:['#9256b4','#50347f'],snap:['#c27b3c','#87411f'],solitaire:['#296c60','#103f38'],rummy:['#ad5b54','#662e36'],spades:['#396d84','#203b60'],war:['#b28d3d','#735624']};
 const games=['crazy','fish','memory','snap','solitaire','rummy','spades','war'];
+const sfx=name=>window.AACSound?.play(name);
+// Card Club's Shadow DOM uses the shared audio engine and persistent mute state.
+function decorateSound(){
+ const header=app.querySelector('.game-top,.card-mode-header');
+ if(!header)return;
+ let b=header.querySelector('[data-act="toggle-sound"]');
+ if(!b){
+  b=document.createElement('button');b.type='button';b.className='roundbutton';
+  b.dataset.act='toggle-sound';
+  const help=header.querySelector('[data-act="help"]');
+  if(help)header.insertBefore(b,help);else header.appendChild(b);
+ }
+ const on=!!window.AACSound?.enabled;
+ b.textContent=on?'♫':'♪';b.title=on?'Mute effects':'Enable effects';
+ b.setAttribute('aria-label',on?'Mute sound effects':'Enable sound effects');
+ b.setAttribute('aria-pressed',String(on));
+}
+window.addEventListener('aac-soundchange',()=>{if(!cardHost.classList.contains('hidden'))decorateSound()});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const deck=()=>Array.from({length:52},(_,i)=>({r:i%13,s:Math.floor(i/13),id:i}));
 function mix(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -1730,8 +1842,9 @@ function onBluetooth(ev){
    }
   }else if(role==='client'){
    if(m.type==='state'&&Number.isInteger(m.seat)&&m.view&&typeof m.view.game==='string'){
-    const wasGame=clientView?.game;
+    const wasGame=clientView?.game,previousLog=clientView?.log,previousEnded=clientView?.ended;
     localSeat=m.seat;clientView=m.view;s=null;
+    if(previousLog&&previousLog!==clientView.log)sfx(clientView.ended&&!previousEnded?'win':'turn');
     if(wasGame!==clientView.game||clientView.turn!==localSeat)selected=[];
     devicePickerOpen=false;closeModal();render();
    }
@@ -1764,7 +1877,7 @@ function start(game,mode='cpu'){
  if(game==='spades'){let d=mix(deck());seats.forEach(p=>p.hand=d.splice(0,13));s.phase='bid';s.bids=[null,null,null,null];s.trick=[];s.broken=false;s.leader=0;s.teamScore=[0,0];s.bags=[0,0];s.log='Bid how many tricks you expect to win.'}
  if(game==='war'){let d=mix(deck());seats[0].pile=d.splice(0,26);seats[1].pile=d;s.pot=[];s.last=[];s.log='Flip cards. Highest card wins the round.'}
  if(game==='solitaire'){let d=mix(deck());s.tableau=Array.from({length:7},(_,i)=>Array.from({length:i+1},(_,j)=>({card:d.pop(),up:j===i})));s.stock=d;s.waste=[];s.foundations=Array.from({length:4},()=>[]);s.drawCount=1;s.undo=[];s.moves=0;s.log='Build foundations from Aces to Kings.'}
- if(role==='host')broadcastViews();render();scheduleBot()
+ if(role==='host')broadcastViews();render();sfx('shuffle');scheduleBot()
 }
 function lobbyFor(game){if(!titles[game])return; lobbyGame=game;closeModal();s=null;clientView=null;selected=[];render();}
 function modeStage(game){
@@ -1772,7 +1885,8 @@ function modeStage(game){
  return `<section class="card-mode" aria-label="Choose how to play ${ab}"><header class="card-mode-header"><button class="roundbutton" type="button" data-act="exit-cards" aria-label="Back to arcade">←</button><strong>AAC Arcade</strong><span class="card-mode-badge">CARDS · OFFLINE</span></header><div class="card-mode-content"><span class="card-mode-eyebrow">CHOOSE YOUR GAME MODE</span><h1>${ab}</h1><p>${d}. Choose how you'd like to play.</p><button class="card-mode-pick" data-act="start-cpu"><span><strong>${sol?'Play Solitaire':'Play against CPUs'}</strong><small>${sol?'Single-player classic':'Start immediately with computer opponents'}</small></span><span class="pick-arrow">→</span></button>${sol?'':`<button class="card-mode-pick" data-act="start-friends"><span><strong>Same-device multiplayer</strong><small>Pass one phone around; hands stay hidden between turns</small></span><span class="pick-arrow">→</span></button><button class="card-mode-pick" data-act="start-group"><span><strong>Group play</strong><small>Up to four players on one device</small></span><span class="pick-arrow">→</span></button><button class="card-mode-pick" data-act="nearby"><span><strong>Nearby Bluetooth</strong><small>Use separate Android phones, without internet</small></span><span class="pick-arrow">→</span></button>`}<div class="card-mode-foot">No ads · No poker · No gambling · Bluetooth requires the native Android app</div></div></section>`
 }
 function nearbyMenu(){modal(`<h2>Nearby Bluetooth</h2><p>One Android device hosts the game; friends connect over Bluetooth. Each person sees only their own cards. No Wi‑Fi or internet is used.</p><div class="dialog-grid"><button class="dialog-card" data-act="host"><b>Host a game</b><small>Make this phone the table</small></button><button class="dialog-card" data-act="devices"><b>Join a friend</b><small>Connect to a paired phone</small></button></div><p>${android?'Bluetooth is supported in this Android build.':'This browser preview cannot access Bluetooth Classic. Use the included Android app build to connect real phones.'}</p>${btn('Back','close','','secondary')}`)}
-function render(){let v=current();if(!v){app.innerHTML=modeStage(lobbyGame);return}if(turnCurtain&&v.passPlay&&role==='local'){app.innerHTML=`<section class="game nonhand"><header class="game-top"><button class="roundbutton" data-act="leave">←</button><span class="game-title">Pass the device</span></header><div class="tabletop"><div class="win">${esc(v.seats[v.turn].name)}'s turn</div><p class="subprompt">Hand the phone to the next player before revealing their cards.</p>${btn('Show my hand','reveal')}</div></section>`;return}let game=v.game;app.innerHTML=`<section class="game game-${game} ${['memory','solitaire','war','snap'].includes(game)?'nonhand':''}"><header class="game-top"><button class="roundbutton" data-act="leave" aria-label="Back to games">←</button><div class="game-title">${esc(titles[game])}</div><div class="chip">${v.ended?'GAME OVER':game==='spades'?'Round '+v.round:game==='solitaire'?'Moves '+v.moves:`${esc(v.seats[v.turn]?.name||'Turn')}'s turn`}</div><button class="roundbutton" data-act="help" aria-label="Game instructions">ⓘ</button></header><div class="turns">${v.seats.map((p,i)=>`<div class="seat ${i===v.turn?'active':''}"><span class="avatar">${i===0?'☺':p.bot?'🤖':'☺'}</span><span>${esc(p.name)}</span><b>${game==='fish'?p.books.length+' books':game==='memory'?v.score[i]+' pairs':game==='snap'||game==='war'?p.pile.length+' cards':game==='spades'?v.bids[i]===null?'—':'bid '+v.bids[i]:game==='rummy'?p.hand.length+' cards':game==='crazy'?p.hand.length+' cards':''}</b></div>`).join('')}${v.seats.some(p=>p.bot)?`<button class="cpu-speed" data-act="cpu-pace" title="Adjust computer turn speed">⏱ ${cpuPace==='gentle'?'Slow':cpuPace==='quick'?'Fast':'Normal'}</button>`:''}</div><div class="tabletop" id="playfield">${gameView(v)}</div>${handView(v)}</section>`;
+function render(){let v=current();if(!v){app.innerHTML=modeStage(lobbyGame);decorateSound();return}if(turnCurtain&&v.passPlay&&role==='local'){app.innerHTML=`<section class="game nonhand"><header class="game-top"><button class="roundbutton" data-act="leave">←</button><span class="game-title">Pass the device</span></header><div class="tabletop"><div class="win">${esc(v.seats[v.turn].name)}'s turn</div><p class="subprompt">Hand the phone to the next player before revealing their cards.</p>${btn('Show my hand','reveal')}</div></section>`;decorateSound();return}let game=v.game;app.innerHTML=`<section class="game game-${game} ${['memory','solitaire','war','snap'].includes(game)?'nonhand':''}"><header class="game-top"><button class="roundbutton" data-act="leave" aria-label="Back to games">←</button><div class="game-title">${esc(titles[game])}</div><div class="chip">${v.ended?'GAME OVER':game==='spades'?'Round '+v.round:game==='solitaire'?'Moves '+v.moves:`${esc(v.seats[v.turn]?.name||'Turn')}'s turn`}</div><button class="roundbutton" data-act="help" aria-label="Game instructions">ⓘ</button></header><div class="turns">${v.seats.map((p,i)=>`<div class="seat ${i===v.turn?'active':''}"><span class="avatar">${i===0?'☺':p.bot?'🤖':'☺'}</span><span>${esc(p.name)}</span><b>${game==='fish'?p.books.length+' books':game==='memory'?v.score[i]+' pairs':game==='snap'||game==='war'?p.pile.length+' cards':game==='spades'?v.bids[i]===null?'—':'bid '+v.bids[i]:game==='rummy'?p.hand.length+' cards':game==='crazy'?p.hand.length+' cards':''}</b></div>`).join('')}${v.seats.some(p=>p.bot)?`<button class="cpu-speed" data-act="cpu-pace" title="Adjust computer turn speed">⏱ ${cpuPace==='gentle'?'Slow':cpuPace==='quick'?'Fast':'Normal'}</button>`:''}</div><div class="tabletop" id="playfield">${gameView(v)}</div>${handView(v)}</section>`;
+ decorateSound();
  if(v.ended&&!overlay.classList.contains('hidden')){} // modal takes priority
 }
 function home(){return `<div class="home"><header class="masthead"><div class="logo"><div class="logo-icon">♥</div><div>CARD CLUB</div></div>${new URLSearchParams(location.search).get('from')==='arcade'?'<a href="../index.html" style="font-size:12px;color:#ffe3ab;text-decoration:none;white-space:nowrap">← Arcade</a>':''}<span class="mode-pill">✦ OFFLINE & KID-FRIENDLY</span></header><div class="hero"><div><div class="eyebrow">PICK A DECK. PLAY TOGETHER.</div><h1>Good games.<br><b>Great company.</b></h1><p>Eight classic card games, proper rules, and familiar cards. Play alone, against CPUs, or with friends on nearby Android devices.</p></div><div class="big-aces"><div class="artcard black"><span>A♠</span><span class="symbol">♠</span></div><div class="artcard"><span>A♥</span><span class="symbol">♥</span></div><div class="artcard black"><span>A♣</span><span class="symbol">♣</span></div></div></div><div class="sectiontop"><h2>Choose your game</h2><span>8 games · No gambling</span></div><div class="library">${games.map((g,i)=>`<button class="gamecard" style="--g1:${colours[g][0]};--g2:${colours[g][1]}" data-act="choose" data-game="${g}"><span class="tile-category">${i<4?'START HERE':i===4?'SOLO CLASSIC':'MORE STRATEGY'}</span><span class="tile-art"><span class="mini">${['8','🐟','🐼','⚡','A','♥','♠','K'][i]}</span><span class="mini">${['♥','♣','🐱','♦','♠','7','A','Q'][i]}</span></span><h3>${esc(titles[g])}</h3><p>${esc(desc[g])}</p></button>`).join('')}</div><div class="home-note">No ads, betting, chat rooms or accounts. Bluetooth Classic multiplayer needs the native Android app and devices with Bluetooth enabled; school/device policies may restrict Bluetooth access.</div></div>`}
@@ -1799,15 +1913,32 @@ function solitaireUI(v){let topWaste=v.waste.at(-1);return `<div class="soltop">
 function askSuit(i){modal(`<h2>Pick a colour</h2><p>Choose which colour everyone must follow next.</p><div class="crazy-colour-picker">${colourNames.map((name,j)=>`<button class="suitbtn colour-${j}" data-act="wild-suit" data-index="${i}" data-suit="${j}">${colourSymbols[j]} ${name}</button>`).join('')}</div>`)}
 function fishTarget(v,rank){modal(`<h2>Who has ${faces[rank]}s?</h2><p>Pick an opponent to ask for ${faces[rank]} cards.</p><div class="player-list">${v.seats.map((p,i)=>i===localSeat?'':`<button class="player-button" data-act="fish-target" data-index="${rank}" data-target="${i}">${esc(p.name)} · ${p.hand.length} cards</button>`).join('')}</div>${btn('Cancel','close','','secondary')}`)}
 function howTo(v){const docs={crazy:'Match colours, numbers or action symbols. Skip misses the next turn, Reverse changes direction, +2 or Wild +4 makes the next player draw and miss a turn. Wild changes the active colour. Draw one card and pass if you cannot play. First player to empty their hand wins.',fish:'You may ask one opponent for any rank you hold. They give you all matching cards, or you draw from the pond. Four of a kind make a book. Most books wins.',memory:'Turn over two cards. If they match, you score a pair and play again. If not, play passes. More pairs wins.',snap:'Turn over one card at a time. When consecutive cards show the same rank, any player can press SNAP. The fastest claim takes the pot. Network delay can affect close reactions.',solitaire:'Klondike draw-one. Put cards in descending order, alternating colours, onto the seven columns. Build suits from Ace to King in the four foundations. Tap a source then destination.',rummy:'Draw one card each turn. Lay down sets (three or four of the same rank) or runs (at least three consecutive cards of one suit), then discard. First to empty their hand wins.',spades:'Partners sit opposite. Everyone bids how many tricks they will take; follow suit if possible. Spades trump. A team earns 10 points per bid trick if it makes its bid, plus overtricks; missing the bid loses those points. First to 200 wins.',war:'Each player reveals a card. Higher rank wins both. A tie triggers War: three cards face down and one face up. Aces are high.'};modal(`<h2>How to play ${esc(titles[v.game])}</h2><p>${esc(docs[v.game])}</p>${btn('Back to the game','close')}`)}
-function next(v,steps=1){v.turn=((v.turn+(v.direction||1)*steps)%v.seats.length+v.seats.length)%v.seats.length}function win(w){s.ended=true;s.winner=w;s.log=w;clearTimeout(botTimer)}
+function next(v,steps=1){v.turn=((v.turn+(v.direction||1)*steps)%v.seats.length+v.seats.length)%v.seats.length}function win(w){s.ended=true;s.winner=w;s.log=w;clearTimeout(botTimer);sfx('win')}
 // === GAME RULES (host only) ===
 function fishBooks(i){let p=s.seats[i];for(let r=0;r<13;r++){let matches=p.hand.filter(c=>c.r===r);if(matches.length===4){p.books.push(r);p.hand=p.hand.filter(c=>c.r!==r);s.log=`${p.name} collected all four ${faces[r]}s!`}}}
 function checkEndFish(){if(s.seats.reduce((t,p)=>t+p.books.length,0)===13||(!s.stock.length&&s.seats.every(p=>p.hand.length===0))){let max=Math.max(...s.seats.map(p=>p.books.length));win(s.seats.filter(p=>p.books.length===max).map(p=>p.name).join(' & ')+' win!');return true}return false}
+function actionEffect(game,type,message){
+ if(/not playable|not a valid|must follow suit|not broken yet|empty|nothing/i.test(message))return 'wrong';
+ if(game==='crazy')return type==='draw'?'draw':type==='pass'?'turn':'card';
+ if(game==='fish')return /gave|collected/i.test(message)?'match':'draw';
+ if(game==='memory')return 'flip';
+ if(game==='snap')return /MATCH!/i.test(message)?'match':'flip';
+ if(game==='rummy')return type==='meld'?'match':type.startsWith('draw')?'draw':'card';
+ if(game==='spades')return /won the trick/i.test(message)?'match':type==='bid'?'turn':'card';
+ if(game==='war')return /WAR!/i.test(message)?'snap':'flip';
+ if(game==='solitaire')return type==='draw'?'draw':type==='foundation'?'match':'place';
+ return 'tap';
+}
 function act(type,index,extra,seat=localSeat){
- if(role==='client'){sendBt({type:'action',action:type,index,extra});return}
+ if(role==='client'){
+  sendBt({type:'action',action:type,index,extra});
+  sfx(type==='flip'||type==='flip-snap'?'flip':type.startsWith('draw')?'draw':'card');
+  return;
+ }
  if(!s||s.ended)return;const p=s.seats[seat];if(!p)return;
- if(type==='snap-continue'&&s.game==='snap'){s.snappable=false;s.log='Play continues.';changed();return}
- if(type==='snap'&&s.game==='snap'){if(!s.snappable)return;let collected=s.pot.length;p.pile.unshift(...s.pot.splice(0));s.snappable=false;s.log=`${p.name} called SNAP! Won ${collected} cards.`;s.turn=seat;if(p.pile.length===52)win(p.name+' wins!');changed();return}
+ const oldLog=s.log,oldMoves=s.moves;
+ if(type==='snap-continue'&&s.game==='snap'){s.snappable=false;s.log='Play continues.';sfx('turn');changed();return}
+ if(type==='snap'&&s.game==='snap'){if(!s.snappable)return;let collected=s.pot.length;p.pile.unshift(...s.pot.splice(0));s.snappable=false;s.log=`${p.name} called SNAP! Won ${collected} cards.`;s.turn=seat;if(p.pile.length===52)win(p.name+' wins!');else sfx('snap');changed();return}
  if(seat!==s.turn)return;
  switch(s.game){
  case'crazy':{
@@ -1836,7 +1967,7 @@ function act(type,index,extra,seat=localSeat){
  break}
  case'fish':{
  if(type!=='ask')break;let rank=Number(index),target=Number(extra);if(target===seat||target<0||target>=s.seats.length||!p.hand.some(c=>c.r===rank))return;let other=s.seats[target],matches=other.hand.filter(c=>c.r===rank);if(matches.length){other.hand=other.hand.filter(c=>c.r!==rank);p.hand.push(...matches);s.log=`${other.name} gave ${matches.length} card${matches.length>1?'s':''} to ${p.name}. ${p.name} goes again.`}else{let picked=s.stock.pop();if(picked)p.hand.push(picked);s.log=`Go Fish! ${p.name} drew ${picked?label(picked):'nothing'}.`;if(!picked||picked.r!==rank)next(s)}fishBooks(seat);checkEndFish();break}
- case'memory':{if(type!=='flip'||s.locked||s.flips.includes(Number(index))||s.tiles[index]?.matched)return;s.flips.push(Number(index));if(s.flips.length===2){s.locked=true;let [a,b]=s.flips;s.log=`${p.name} turned over ${s.tiles[a].emoji} and ${s.tiles[b].emoji}.`;changed();clearTimeout(pendingResolution);pendingResolution=setTimeout(()=>{if(!s||s.game!=='memory')return;if(s.tiles[a].emoji===s.tiles[b].emoji){s.tiles[a].matched=s.tiles[b].matched=true;s.score[seat]++;s.log=`Match! ${p.name} plays again.`}else{next(s);s.log='No match. Next turn!'}s.flips=[];s.locked=false;if(s.tiles.every(t=>t.matched)){let max=Math.max(...s.score);win(s.seats.filter((_,i)=>s.score[i]===max).map(x=>x.name).join(' & ')+' win!')}changed()},1000);return}break}
+ case'memory':{if(type!=='flip'||s.locked||s.flips.includes(Number(index))||s.tiles[index]?.matched)return;s.flips.push(Number(index));sfx('flip');if(s.flips.length===2){s.locked=true;let [a,b]=s.flips;s.log=`${p.name} turned over ${s.tiles[a].emoji} and ${s.tiles[b].emoji}.`;changed();clearTimeout(pendingResolution);pendingResolution=setTimeout(()=>{if(!s||s.game!=='memory')return;if(s.tiles[a].emoji===s.tiles[b].emoji){s.tiles[a].matched=s.tiles[b].matched=true;s.score[seat]++;s.log=`Match! ${p.name} plays again.`;sfx('match')}else{next(s);s.log='No match. Next turn!';sfx('wrong')}s.flips=[];s.locked=false;if(s.tiles.every(t=>t.matched)){let max=Math.max(...s.score);win(s.seats.filter((_,i)=>s.score[i]===max).map(x=>x.name).join(' & ')+' win!')}changed()},1000);return}break}
  case'snap':{if(type!=='flip-snap')break; if(!p.pile.length){if(s.pot.length){p.pile.push(...s.pot.splice(0));}else{next(s);break}}let c=p.pile.shift();s.pot.push(c);s.snappable=s.pot.length>=2&&s.pot.at(-2).r===c.r;s.log=s.snappable?'MATCH! PRESS SNAP!':`${p.name} flipped ${label(c)}.`;next(s);if(s.snappable&&s.seats.every(x=>x.bot)){s.snappable=false}break}
  case'rummy':{
  if(type==='draw-stock'||type==='draw-discard'){if(s.phase!=='draw')return;if(type==='draw-stock'){if(!s.stock.length&&s.discard.length>1){let top=s.discard.pop();s.stock=mix(s.discard.splice(0));s.discard.push(top)}if(!s.stock.length){s.log='Stock is empty.';break}p.hand.push(s.stock.pop())}else{if(!s.discard.length)return;p.hand.push(s.discard.pop())}s.phase='discard';s.log=`${p.name} drew. Lay melds or discard.`}
@@ -1853,6 +1984,9 @@ function act(type,index,extra,seat=localSeat){
  if(s.ended)break;let winner=val(ca)>=val(cb)?0:1;s.seats[winner].pile.push(...mix(pot));s.last=[ca,cb];s.log=`${battle>1?'WAR! ':''}${s.seats[winner].name} won ${pot.length} cards with ${label(winner?cb:ca)}.`;if(s.seats[1-winner].pile.length===0)win(s.seats[winner].name+' wins!');break}
  case'solitaire':{solAction(type,index);break}
  }
+ // Each confirmed gameplay action, including CPU turns, has its own feedback.
+ if(!s.ended&&s.game!=='memory'&&(s.log!==oldLog||
+    (s.game==='solitaire'&&s.moves!==oldMoves)))sfx(actionEffect(s.game,type,s.log));
  changed()
 }
 function changed(){if(role==='local'&&s?.passPlay&&s.turn!==localSeat&&!s.ended){localSeat=s.turn;turnCurtain=true}else if(role==='local'&&s?.passPlay){localSeat=s.turn}if(role==='host')broadcastViews();render();scheduleBot()}
@@ -1889,6 +2023,8 @@ function solAction(type,index){
 }
 function canFoundation(c,suit){let pile=s.foundations[suit];return c.s===suit&&c.r===pile.length}function removeSol(n){if(solSelect.source==='waste')s.waste.pop();else{let col=s.tableau[solSelect.col];col.splice(solSelect.idx,n);if(col.length&&!col.at(-1).up)col.at(-1).up=true}}
 function getAct(e){let el=e.target.closest('[data-act]');if(!el)return;let name=el.dataset.act,idx=el.dataset.index,extra=el.dataset.suit??el.dataset.target;
+ if(name==='toggle-sound'){window.AACSound?.setEnabled(!window.AACSound.enabled);return}
+ if(name==='sol-pick-waste'||name==='sol-table-card')sfx('select');
  if(name==='choose')return lobbyFor(el.dataset.game);if(name==='exit-cards')return;
  if(name==='start-cpu')return start(lobbyGame,'cpu');if(name==='start-friends')return start(lobbyGame,'friends');if(name==='start-group')return start(lobbyGame,'group');
  if(name==='nearby')return nearbyMenu();if(name==='close')return closeModal();
@@ -1920,7 +2056,7 @@ function getAct(e){let el=e.target.closest('[data-act]');if(!el)return;let name=
  if(name==='help'){let v=current();if(v)howTo(v);return}if(name==='reveal'){turnCurtain=false;render();return}
  if(name==='leave')return;
  if(name==='again'){if(role==='client')return showToast('Ask the host to restart');let id=s.game;start(id,'cpu');return}
- if(name==='select-card'){if(!myTurn(current()))return;let i=Number(idx);if(current().game==='rummy'){selected=selected.includes(i)?selected.filter(x=>x!==i):[...selected,i]}else selected=[i];render();return}
+ if(name==='select-card'){if(!myTurn(current()))return;sfx('select');let i=Number(idx);if(current().game==='rummy'){selected=selected.includes(i)?selected.filter(x=>x!==i):[...selected,i]}else selected=[i];render();return}
  if(name==='wild-suit'){closeModal();act('play',Number(idx),Number(extra));selected=[];return}
  if(name==='fish-ask'){if(!selected.length)return showToast('Choose a card in your hand');return fishTarget(current(),current().seats[localSeat].hand[selected[0]].r)}
  if(name==='fish-target'){closeModal();act('ask',Number(idx),Number(extra));selected=[];return}
