@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.2.1](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.1) — 2026-11-20
+
+**Pool cue and shot power control bugfix.**
+
+### Fixed
+- Pool cue rotates smoothly with finger movement instead of jumping towards the touch point after a drag.
+- Tapered wooden cue has a visible wrap, ferrule and tip and pulls backward with shot power.
+- Turning off the aim guide no longer makes the cue disappear.
+- Shot power now resets to 0 on every shot and turn, including CPU, practice and Bluetooth state reconciliation.
+- Regression checks for cue aiming, drawing and shot reset paths.
+
+### Testing notes
+- Test touch-aiming, spin, and the pull-and-release bar on actual Android devices.
+- Bluetooth play remains subject to two-device testing.
+
+
 This file records meaningful published changes to AAC Playroom.
 
 ## [2.2.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.0) — 2026-11-20
