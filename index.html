@@ -1383,7 +1383,7 @@ function card(c,opts={}){
 function showToast(msg){toast.textContent=msg;toast.classList.remove('hidden');clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>toast.classList.add('hidden'),2400)}
 function modal(html){overlay.innerHTML=`<div class="dialog">${html}</div>`;overlay.classList.remove('hidden')};function closeModal(){overlay.classList.add('hidden');overlay.innerHTML=''}
 function btn(t,a,more='',cls=''){return `<button class="action ${cls}" data-act="${a}" ${more}>${t}</button>`};
-let s=null,clientView=null,selected=[],solSelect=null,localSeat=0,role='local',peerIds=[],peerBySeat=[],lobbyGame='crazy',botTimer=0,pendingResolution=0,btConnected=false,turnCurtain=false;
+let s=null,clientView=null,selected=[],solSelect=null,localSeat=0,role='local',peerIds=[],peerBySeat=[],lobbyGame='crazy',botTimer=0,pendingResolution=0,btConnected=false,turnCurtain=false,devicePickerOpen=false,knownDevices=[];
 const CPU_PACE={gentle:3200,normal:2350,quick:1350};
 let cpuPace=(()=>{try{return localStorage.getItem('aac-cpu-pace')||'normal'}catch{return 'normal'}})();
 if(!CPU_PACE[cpuPace])cpuPace='normal';
@@ -1395,18 +1395,85 @@ function btCall(name,...args){try{return window.AACBluetooth[name](...args)}catc
 function sendBt(obj){if(android)btCall('send',JSON.stringify(obj))}
 function hostSend(peer,obj){if(android)btCall('sendTo',peer,JSON.stringify(obj))}
 function broadcastViews(){if(role!=='host'||!s)return;peerBySeat.forEach((id,seat)=>{if(id)hostSend(id,{type:'state',seat,view:makeView(seat)})})}
+function showDevicePicker(){
+ const items=knownDevices.map(p=>`<button class="player-button" data-act="join-device" data-address="${esc(p.address)}">${esc(p.name||'Bluetooth device')}${p.paired?' · paired':''}</button>`).join('');
+ modal(`<h2>Find a friend's phone</h2><p>On your friend's phone choose <strong>Host</strong> and accept the discoverability prompt. Nearby phones will appear below. You can also connect to a previously paired device.</p><div class="player-list" id="bluetoothDevices">${items||'<p>Searching nearby… Make sure the host accepted the Android discoverability prompt.</p>'}</div><div class="actions">${btn('Scan again','devices')}${btn('Cancel','client-stop','','secondary')}</div>`);
+}
+function showHostLobby(){
+ if(role!=='host'||s)return;
+ const count=peerIds.length;
+ modal(`<h2>Bluetooth room</h2><p>Allow Android to make this phone discoverable. Friends tap Join on their phones and select yours from the list. Keep this screen open until everyone has connected.</p><div class="caption" id="host-count">Friends connected: ${count} / 3</div><div class="actions">${btn('Start game'+(count?' with '+count+' friend'+(count===1?'':'s'):' (needs a friend)'),'host-start',count?'':'disabled')}${btn('Cancel','host-stop','','secondary')}</div>`);
+}
 function onBluetooth(ev){
- if(ev.type==='status'){showToast(ev.message||ev.state);if(ev.state==='hosting'||ev.state==='connected')btConnected=true; render();return}
- if(ev.type==='peers'){let peers=ev.peers||[];const item=peers.map(p=>`<button class="player-button" data-act="join-device" data-address="${esc(p.address)}">${esc(p.name||'Android device')} · ${esc(p.address)}</button>`).join('');modal(`<h2>Join a nearby game</h2><p>Choose a device that is already paired in Android Bluetooth settings. No internet needed.</p><div class="player-list">${item||'No paired devices found.'}</div><div class="actions">${btn('Refresh','devices')}${btn('Back','close','','secondary')}</div>`);return}
- if(ev.type==='connected'&&role==='host'){let id=ev.peerId;if(!peerIds.includes(id)){peerIds.push(id);showToast('Friend connected')}if(s)broadcastViews();else{let count=$('#host-count');if(count)count.textContent='Friends connected: '+peerIds.length;}return}
- if(ev.type==='connected'&&role==='client'){sendBt({type:'hello',name:'Friend'});showToast('Connected. Waiting for host…');render();return}
- if(ev.type==='disconnected'){if(role==='host'){peerIds=peerIds.filter(x=>x!==ev.peerId);if(s){for(let i=0;i<peerBySeat.length;i++)if(peerBySeat[i]===ev.peerId){s.seats[i].bot=true;s.seats[i].name='CPU (reconnected later)';peerBySeat[i]=null}broadcastViews();scheduleBot();}showToast('Player disconnected; CPU takes over');render()}else{showToast('Connection lost');role='local';s=null;clientView=null;closeModal();render()}return}
- if(ev.type==='message'){let m;try{m=JSON.parse(ev.data)}catch{return}
+ if(ev.type==='status'){
+  if(ev.state==='error'){showToast(ev.message||'Bluetooth error');return}
+  if(ev.state==='hosting'||ev.state==='connected')btConnected=true;
+  if(ev.state==='stopped')btConnected=false;
+  if(ev.message&&ev.state!=='scan_finished')showToast(ev.message);
+  return;
+ }
+ if(ev.type==='peers'){
+  knownDevices=Array.isArray(ev.peers)?ev.peers.filter(p=>p&&typeof p.address==='string'):[];
+  if(role==='client'&&devicePickerOpen)showDevicePicker();
+  return;
+ }
+ if(ev.type==='connected'&&role==='host'){
+  const id=ev.peerId;
+  if(!id||peerIds.includes(id))return;
+  if(s){
+   hostSend(id,{type:'notice',message:'Game already started; ask the host to start a new round.'});
+   showToast('Another phone connected while a match is running');
+   return;
+  }
+  peerIds.push(id);
+  showHostLobby();
+  return;
+ }
+ if(ev.type==='connected'&&role==='client'){
+  devicePickerOpen=false;
+  sendBt({type:'hello',name:'Friend',protocol:1});
+  modal('<h2>Connected</h2><p>Waiting for the host to start the game. Keep this screen open.</p>'+btn('Disconnect','client-stop','','secondary'));
+  return;
+ }
+ if(ev.type==='disconnected'){
   if(role==='host'){
-   if(m.type==='hello'){if(!peerIds.includes(ev.peerId))peerIds.push(ev.peerId);showToast('Friend joined');render()}
-   if(m.type==='action'&&s){let seat=peerBySeat.indexOf(ev.peerId);if(seat>=0){act(m.action,m.index,m.extra,seat);}}
-  } else if(role==='client') {
-   if(m.type==='state'){localSeat=m.seat;clientView=m.view;s=null;closeModal();render()}
+   peerIds=peerIds.filter(x=>x!==ev.peerId);
+   if(s){
+    for(let i=0;i<peerBySeat.length;i++)if(peerBySeat[i]===ev.peerId){
+     s.seats[i].bot=true;s.seats[i].name='CPU (friend disconnected)';peerBySeat[i]=null;
+    }
+    broadcastViews();scheduleBot();
+   }else showHostLobby();
+   showToast('Friend disconnected');render();
+  }else if(role==='client'){
+   showToast('Bluetooth connection lost');
+   role='local';devicePickerOpen=false;btConnected=false;
+   s=null;clientView=null;closeModal();render();
+  }
+  return;
+ }
+ if(ev.type==='message'){
+  let m;try{m=JSON.parse(ev.data)}catch{return}
+  if(!m||typeof m!=='object'||typeof m.type!=='string')return;
+  if(role==='host'){
+   if(m.type==='hello'){
+    if(s){hostSend(ev.peerId,{type:'notice',message:'This match is already in progress.'});return}
+    if(!peerIds.includes(ev.peerId)&&peerIds.length<3)peerIds.push(ev.peerId);
+    showHostLobby();
+   }
+   if(m.type==='action'&&s){
+    const seat=peerBySeat.indexOf(ev.peerId);
+    const allowed=['draw','pass','play','ask','flip','flip-snap','snap','snap-continue','draw-stock','draw-discard','meld','throw','bid'];
+    if(seat>=0&&allowed.includes(m.action))act(m.action,m.index,m.extra,seat);
+   }
+  }else if(role==='client'){
+   if(m.type==='state'&&Number.isInteger(m.seat)&&m.view&&typeof m.view.game==='string'){
+    const wasGame=clientView?.game;
+    localSeat=m.seat;clientView=m.view;s=null;
+    if(wasGame!==clientView.game||clientView.turn!==localSeat)selected=[];
+    devicePickerOpen=false;closeModal();render();
+   }
+   if(m.type==='notice')showToast(m.message||'Host message');
    if(m.type==='lobby'){lobbyGame=m.game;render()}
   }
  }
@@ -1417,8 +1484,11 @@ function current(){return gameplay()}
 function start(game,mode='cpu'){
  closeModal();clearTimeout(botTimer);clearTimeout(pendingResolution);selected=[];solSelect=null;role=role==='host'?'host':'local';localSeat=0;
  let n=game==='solitaire'?1:game==='war'?2:game==='spades'?4:game==='memory'&&mode==='solo'?1:mode==='friends'?2:mode==='group'?4:game==='snap'?3:2;
- if(role==='host'&&peerIds.length){n=Math.min(4,Math.max(n,peerIds.length+1))}
- let seats=Array.from({length:n},(_,i)=>({name:i===0?'You':role==='host'&&peerIds[i-1]?'Friend '+i:mode==='friends'||mode==='group'?'Player '+(i+1):'CPU '+i,bot:i>0&&mode!=='friends'&&mode!=='group'&&!(role==='host'&&peerIds[i-1]),hand:[],score:0,books:[],pile:[]}));
+ if(role==='host'&&peerIds.length){
+ const cap=game==='war'?2:4;
+ n=Math.min(cap,Math.max(n,peerIds.length+1));
+}
+ let seats=Array.from({length:n},(_,i)=>({name:i===0?'You':role==='host'&&peerIds[i-1]?'Friend '+i:mode==='friends'||mode==='group'?'Player '+(i+1):'CPU '+i,bot:i>0&&(role==='host'?(!peerIds[i-1]):(mode!=='friends'&&mode!=='group')),hand:[],score:0,books:[],pile:[]}));
  peerBySeat=Array(n).fill(null);if(role==='host'){peerIds.slice(0,n-1).forEach((id,i)=>peerBySeat[i+1]=id)}
  s={game,seats,turn:0,ended:false,winner:null,log:'',round:1,passPlay:role==='local'&&(mode==='friends'||mode==='group')};clientView=null;turnCurtain=false;
  if(game==='crazy'){let d=mix(crazyDeck());seats.forEach(p=>p.hand=d.splice(0,7));s.discard=[];
@@ -1560,12 +1630,25 @@ function getAct(e){let el=e.target.closest('[data-act]');if(!el)return;let name=
  if(name==='choose')return lobbyFor(el.dataset.game);if(name==='exit-cards')return;
  if(name==='start-cpu')return start(lobbyGame,'cpu');if(name==='start-friends')return start(lobbyGame,'friends');if(name==='start-group')return start(lobbyGame,'group');
  if(name==='nearby')return nearbyMenu();if(name==='close')return closeModal();
- if(name==='host'){if(!android)return showToast('Bluetooth needs the native Android app');role='host';peerIds=[];peerBySeat=[];closeModal();btCall('host');modal(`<h2>Waiting for friends</h2><p>Make this device discoverable in Android Bluetooth settings. Pair your friends' phones, then let them join.</p><div class="caption" id="host-count">Friends connected: ${peerIds.length}</div><div class="actions">${btn('Start with friends + CPUs','host-start')}${btn('Cancel','host-stop','','secondary')}</div>`);return}
- if(name==='host-stop'){btCall('stop');role='local';peerIds=[];closeModal();return}
- if(name==='host-start'){start(lobbyGame,'cpu');return}
- if(name==='devices'){if(!android)return showToast('Bluetooth needs the native Android app');role='client';btCall('pairedDevices');return}
- if(name==='join-device'){closeModal();btCall('connectTo',el.dataset.address);modal(`<h2>Connecting…</h2><p>Accept the Android Bluetooth pairing prompt if asked, then wait for your friend to start.</p>${btn('Cancel','client-stop','','secondary')}`);return}
- if(name==='client-stop'){btCall('stop');role='local';closeModal();render();return}
+ if(name==='host'){
+  if(!android||!btCall('isSupported'))return showToast('Bluetooth Classic requires an Android phone with Bluetooth.');
+  role='host';devicePickerOpen=false;peerIds=[];peerBySeat=[];
+  closeModal();showHostLobby();btCall('host');return;
+ }
+ if(name==='host-stop'){btCall('stop');role='local';peerIds=[];peerBySeat=[];btConnected=false;closeModal();render();return}
+ if(name==='host-start'){if(!peerIds.length)return showToast('Connect at least one friend first');start(lobbyGame,'cpu');return}
+ if(name==='devices'){
+ if(!android||!btCall('isSupported'))return showToast('This phone does not support Bluetooth Classic.');
+ role='client';devicePickerOpen=true;knownDevices=[];
+ showDevicePicker();btCall('pairedDevices');return;
+}
+ if(name==='join-device'){
+ if(!/^([\da-f]{2}:){5}[\da-f]{2}$/i.test(el.dataset.address||''))return showToast('Invalid device address');
+ devicePickerOpen=false;closeModal();
+ modal(`<h2>Connecting…</h2><p>Confirm the Android Bluetooth pairing code if asked. The host must have the same version of AAC Playroom installed.</p>${btn('Cancel','client-stop','','secondary')}`);
+ btCall('connectTo',el.dataset.address);return;
+}
+ if(name==='client-stop'){devicePickerOpen=false;btCall('stop');role='local';clientView=null;closeModal();render();return}
  if(name==='cpu-pace'){
    cpuPace=cpuPace==='normal'?'gentle':cpuPace==='gentle'?'quick':'normal';
    try{localStorage.setItem('aac-cpu-pace',cpuPace)}catch{}
@@ -1601,7 +1684,7 @@ const saved=()=>{try{return JSON.parse(localStorage.getItem('aac-card-prefs')||'
 window.addEventListener('beforeunload',()=>{try{localStorage.setItem('aac-card-prefs',JSON.stringify({lastGame:s?.game}))}catch{}});
 window.AACCards={
  open(game){if(!titles[game])return;document.body.classList.add('aac-card-running');cardHost.classList.remove('hidden');lobbyFor(game)},
- exit(){if(role==='host'||role==='client')btCall('stop');clearTimeout(botTimer);clearTimeout(pendingResolution);role='local';s=null;clientView=null;selected=[];closeModal();cardHost.classList.add('hidden');document.body.classList.remove('aac-card-running');app.innerHTML=''}
+ exit(){if(role==='host'||role==='client')btCall('stop');devicePickerOpen=false;clearTimeout(botTimer);clearTimeout(pendingResolution);role='local';s=null;clientView=null;selected=[];closeModal();cardHost.classList.add('hidden');document.body.classList.remove('aac-card-running');app.innerHTML=''}
 };
 render();
 })();
