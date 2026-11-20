@@ -462,7 +462,7 @@ function updateUI(){const person=getActive(), moving=e.shotRunning;
  powerRange.setAttribute('aria-disabled',String(moving||person.cpu||finished||ballInHand));
  powerRange.classList.toggle('pv-locked',moving||person.cpu||finished||ballInHand);
  $('#pvSpinName').textContent=tip.y>.35?'FOLLOW':tip.y<-.35?'DRAW':tip.x>.35?'RIGHT ENGLISH':tip.x<-.35?'LEFT ENGLISH':'CENTRE HIT';
- tipMarker.style.transform=`translate(${tip.x*37}px,${-tip.y*37}px)`;
+ tipMarker.style.transform=`translate(${tip.x*20}px,${-tip.y*20}px)`;
  spin.setAttribute('aria-valuetext',$('#pvSpinName').textContent);
  aimWheel.setAttribute('aria-valuenow',String(Math.round(aim*180/Math.PI)));
 }
@@ -1704,9 +1704,9 @@ box-shadow:inset 0 2px 3px #fff1,0 6px 14px #0004!important}
 .pool-v5[data-power-side="right"] .pv-power{right:max(10px,env(safe-area-inset-right))!important;left:auto!important}
 .pool-v5 .pv-power-label{font-size:.55rem;max-width:56px}
 .pool-v5 .pv-power-track{--strength:0%;position:relative;min-height:92px;flex:1;width:43px;display:block;border:2px solid #7199ad;border-radius:13px;background:#061720e8;box-shadow:inset 0 6px 15px #000b;touch-action:none;overscroll-behavior:contain;user-select:none;cursor:ns-resize}
-.pool-v5 .pv-power-track::before{content:'';position:absolute;inset:auto 4px 4px;height:calc(var(--strength) - 7px);max-height:calc(100% - 8px);background:linear-gradient(#f5d485,#e8a44b);border-radius:7px;pointer-events:none;min-height:0}
+.pool-v5 .pv-power-track::before{content:'';position:absolute;inset:4px 4px auto;height:calc(var(--strength) - 7px);max-height:calc(100% - 8px);background:linear-gradient(#f5d485,#e8a44b);border-radius:7px;pointer-events:none;min-height:0}
 .pool-v5 .pv-power-track-cue{position:absolute;top:8px;bottom:8px;left:calc(50% - 3px);width:6px;border-radius:6px;background:linear-gradient(#e9d29b,#986039);pointer-events:none;opacity:.82}
-.pool-v5 .pv-power-handle{position:absolute;left:0;right:0;bottom:clamp(5px,var(--strength),calc(100% - 32px));height:32px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(150deg,#ffe9b7,#c49357);border:1px solid #fff4d3;color:#382110;font-size:1.2rem;box-shadow:0 2px 10px #0008;pointer-events:none}
+.pool-v5 .pv-power-handle{position:absolute;left:0;right:0;top:clamp(5px,var(--strength),calc(100% - 37px));bottom:auto;height:32px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(150deg,#ffe9b7,#c49357);border:1px solid #fff4d3;color:#382110;font-size:1.2rem;box-shadow:0 2px 10px #0008;pointer-events:none}
 .pool-v5 .pv-power-track.pv-locked{opacity:.38;cursor:not-allowed}
 .pool-v5 #pvPowerVal{font-size:.65rem!important;white-space:nowrap}
 .pool-v5 .pv-aim-wheel{position:absolute;right:max(13px,env(safe-area-inset-right));bottom:max(9px,env(safe-area-inset-bottom));z-index:28;width:84px;height:82px;border-radius:16px;background:#061a21c8;border:1px solid #c7ded14c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;touch-action:none;cursor:ew-resize;backdrop-filter:blur(8px);box-shadow:0 5px 20px #000a}
