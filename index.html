@@ -1842,8 +1842,9 @@ function onBluetooth(ev){
    }
   }else if(role==='client'){
    if(m.type==='state'&&Number.isInteger(m.seat)&&m.view&&typeof m.view.game==='string'){
-    const wasGame=clientView?.game;
+    const wasGame=clientView?.game,previousLog=clientView?.log,previousEnded=clientView?.ended;
     localSeat=m.seat;clientView=m.view;s=null;
+    if(previousLog&&previousLog!==clientView.log)sfx(clientView.ended&&!previousEnded?'win':'turn');
     if(wasGame!==clientView.game||clientView.turn!==localSeat)selected=[];
     devicePickerOpen=false;closeModal();render();
    }
@@ -1916,11 +1917,28 @@ function next(v,steps=1){v.turn=((v.turn+(v.direction||1)*steps)%v.seats.length+
 // === GAME RULES (host only) ===
 function fishBooks(i){let p=s.seats[i];for(let r=0;r<13;r++){let matches=p.hand.filter(c=>c.r===r);if(matches.length===4){p.books.push(r);p.hand=p.hand.filter(c=>c.r!==r);s.log=`${p.name} collected all four ${faces[r]}s!`}}}
 function checkEndFish(){if(s.seats.reduce((t,p)=>t+p.books.length,0)===13||(!s.stock.length&&s.seats.every(p=>p.hand.length===0))){let max=Math.max(...s.seats.map(p=>p.books.length));win(s.seats.filter(p=>p.books.length===max).map(p=>p.name).join(' & ')+' win!');return true}return false}
+function actionEffect(game,type,message){
+ if(/not playable|not a valid|must follow suit|not broken yet|empty|nothing/i.test(message))return 'wrong';
+ if(game==='crazy')return type==='draw'?'draw':type==='pass'?'turn':'card';
+ if(game==='fish')return /gave|collected/i.test(message)?'match':'draw';
+ if(game==='memory')return 'flip';
+ if(game==='snap')return /MATCH!/i.test(message)?'match':'flip';
+ if(game==='rummy')return type==='meld'?'match':type.startsWith('draw')?'draw':'card';
+ if(game==='spades')return /won the trick/i.test(message)?'match':type==='bid'?'turn':'card';
+ if(game==='war')return /WAR!/i.test(message)?'snap':'flip';
+ if(game==='solitaire')return type==='draw'?'draw':type==='foundation'?'match':'place';
+ return 'tap';
+}
 function act(type,index,extra,seat=localSeat){
- if(role==='client'){sendBt({type:'action',action:type,index,extra});return}
+ if(role==='client'){
+  sendBt({type:'action',action:type,index,extra});
+  sfx(type==='flip'||type==='flip-snap'?'flip':type.startsWith('draw')?'draw':'card');
+  return;
+ }
  if(!s||s.ended)return;const p=s.seats[seat];if(!p)return;
- if(type==='snap-continue'&&s.game==='snap'){s.snappable=false;s.log='Play continues.';changed();return}
- if(type==='snap'&&s.game==='snap'){if(!s.snappable)return;let collected=s.pot.length;p.pile.unshift(...s.pot.splice(0));s.snappable=false;s.log=`${p.name} called SNAP! Won ${collected} cards.`;s.turn=seat;if(p.pile.length===52)win(p.name+' wins!');changed();return}
+ const oldLog=s.log,oldMoves=s.moves;
+ if(type==='snap-continue'&&s.game==='snap'){s.snappable=false;s.log='Play continues.';sfx('turn');changed();return}
+ if(type==='snap'&&s.game==='snap'){if(!s.snappable)return;let collected=s.pot.length;p.pile.unshift(...s.pot.splice(0));s.snappable=false;s.log=`${p.name} called SNAP! Won ${collected} cards.`;s.turn=seat;if(p.pile.length===52)win(p.name+' wins!');else sfx('snap');changed();return}
  if(seat!==s.turn)return;
  switch(s.game){
  case'crazy':{
@@ -1949,7 +1967,7 @@ function act(type,index,extra,seat=localSeat){
  break}
  case'fish':{
  if(type!=='ask')break;let rank=Number(index),target=Number(extra);if(target===seat||target<0||target>=s.seats.length||!p.hand.some(c=>c.r===rank))return;let other=s.seats[target],matches=other.hand.filter(c=>c.r===rank);if(matches.length){other.hand=other.hand.filter(c=>c.r!==rank);p.hand.push(...matches);s.log=`${other.name} gave ${matches.length} card${matches.length>1?'s':''} to ${p.name}. ${p.name} goes again.`}else{let picked=s.stock.pop();if(picked)p.hand.push(picked);s.log=`Go Fish! ${p.name} drew ${picked?label(picked):'nothing'}.`;if(!picked||picked.r!==rank)next(s)}fishBooks(seat);checkEndFish();break}
- case'memory':{if(type!=='flip'||s.locked||s.flips.includes(Number(index))||s.tiles[index]?.matched)return;s.flips.push(Number(index));if(s.flips.length===2){s.locked=true;let [a,b]=s.flips;s.log=`${p.name} turned over ${s.tiles[a].emoji} and ${s.tiles[b].emoji}.`;changed();clearTimeout(pendingResolution);pendingResolution=setTimeout(()=>{if(!s||s.game!=='memory')return;if(s.tiles[a].emoji===s.tiles[b].emoji){s.tiles[a].matched=s.tiles[b].matched=true;s.score[seat]++;s.log=`Match! ${p.name} plays again.`}else{next(s);s.log='No match. Next turn!'}s.flips=[];s.locked=false;if(s.tiles.every(t=>t.matched)){let max=Math.max(...s.score);win(s.seats.filter((_,i)=>s.score[i]===max).map(x=>x.name).join(' & ')+' win!')}changed()},1000);return}break}
+ case'memory':{if(type!=='flip'||s.locked||s.flips.includes(Number(index))||s.tiles[index]?.matched)return;s.flips.push(Number(index));sfx('flip');if(s.flips.length===2){s.locked=true;let [a,b]=s.flips;s.log=`${p.name} turned over ${s.tiles[a].emoji} and ${s.tiles[b].emoji}.`;changed();clearTimeout(pendingResolution);pendingResolution=setTimeout(()=>{if(!s||s.game!=='memory')return;if(s.tiles[a].emoji===s.tiles[b].emoji){s.tiles[a].matched=s.tiles[b].matched=true;s.score[seat]++;s.log=`Match! ${p.name} plays again.`;sfx('match')}else{next(s);s.log='No match. Next turn!';sfx('wrong')}s.flips=[];s.locked=false;if(s.tiles.every(t=>t.matched)){let max=Math.max(...s.score);win(s.seats.filter((_,i)=>s.score[i]===max).map(x=>x.name).join(' & ')+' win!')}changed()},1000);return}break}
  case'snap':{if(type!=='flip-snap')break; if(!p.pile.length){if(s.pot.length){p.pile.push(...s.pot.splice(0));}else{next(s);break}}let c=p.pile.shift();s.pot.push(c);s.snappable=s.pot.length>=2&&s.pot.at(-2).r===c.r;s.log=s.snappable?'MATCH! PRESS SNAP!':`${p.name} flipped ${label(c)}.`;next(s);if(s.snappable&&s.seats.every(x=>x.bot)){s.snappable=false}break}
  case'rummy':{
  if(type==='draw-stock'||type==='draw-discard'){if(s.phase!=='draw')return;if(type==='draw-stock'){if(!s.stock.length&&s.discard.length>1){let top=s.discard.pop();s.stock=mix(s.discard.splice(0));s.discard.push(top)}if(!s.stock.length){s.log='Stock is empty.';break}p.hand.push(s.stock.pop())}else{if(!s.discard.length)return;p.hand.push(s.discard.pop())}s.phase='discard';s.log=`${p.name} drew. Lay melds or discard.`}
@@ -1966,6 +1984,9 @@ function act(type,index,extra,seat=localSeat){
  if(s.ended)break;let winner=val(ca)>=val(cb)?0:1;s.seats[winner].pile.push(...mix(pot));s.last=[ca,cb];s.log=`${battle>1?'WAR! ':''}${s.seats[winner].name} won ${pot.length} cards with ${label(winner?cb:ca)}.`;if(s.seats[1-winner].pile.length===0)win(s.seats[winner].name+' wins!');break}
  case'solitaire':{solAction(type,index);break}
  }
+ // Each confirmed gameplay action, including CPU turns, has its own feedback.
+ if(!s.ended&&s.game!=='memory'&&(s.log!==oldLog||
+    (s.game==='solitaire'&&s.moves!==oldMoves)))sfx(actionEffect(s.game,type,s.log));
  changed()
 }
 function changed(){if(role==='local'&&s?.passPlay&&s.turn!==localSeat&&!s.ended){localSeat=s.turn;turnCurtain=true}else if(role==='local'&&s?.passPlay){localSeat=s.turn}if(role==='host')broadcastViews();render();scheduleBot()}
@@ -2002,6 +2023,8 @@ function solAction(type,index){
 }
 function canFoundation(c,suit){let pile=s.foundations[suit];return c.s===suit&&c.r===pile.length}function removeSol(n){if(solSelect.source==='waste')s.waste.pop();else{let col=s.tableau[solSelect.col];col.splice(solSelect.idx,n);if(col.length&&!col.at(-1).up)col.at(-1).up=true}}
 function getAct(e){let el=e.target.closest('[data-act]');if(!el)return;let name=el.dataset.act,idx=el.dataset.index,extra=el.dataset.suit??el.dataset.target;
+ if(name==='toggle-sound'){window.AACSound?.setEnabled(!window.AACSound.enabled);return}
+ if(name==='sol-pick-waste'||name==='sol-table-card')sfx('select');
  if(name==='choose')return lobbyFor(el.dataset.game);if(name==='exit-cards')return;
  if(name==='start-cpu')return start(lobbyGame,'cpu');if(name==='start-friends')return start(lobbyGame,'friends');if(name==='start-group')return start(lobbyGame,'group');
  if(name==='nearby')return nearbyMenu();if(name==='close')return closeModal();
@@ -2033,7 +2056,7 @@ function getAct(e){let el=e.target.closest('[data-act]');if(!el)return;let name=
  if(name==='help'){let v=current();if(v)howTo(v);return}if(name==='reveal'){turnCurtain=false;render();return}
  if(name==='leave')return;
  if(name==='again'){if(role==='client')return showToast('Ask the host to restart');let id=s.game;start(id,'cpu');return}
- if(name==='select-card'){if(!myTurn(current()))return;let i=Number(idx);if(current().game==='rummy'){selected=selected.includes(i)?selected.filter(x=>x!==i):[...selected,i]}else selected=[i];render();return}
+ if(name==='select-card'){if(!myTurn(current()))return;sfx('select');let i=Number(idx);if(current().game==='rummy'){selected=selected.includes(i)?selected.filter(x=>x!==i):[...selected,i]}else selected=[i];render();return}
  if(name==='wild-suit'){closeModal();act('play',Number(idx),Number(extra));selected=[];return}
  if(name==='fish-ask'){if(!selected.length)return showToast('Choose a card in your hand');return fishTarget(current(),current().seats[localSeat].hand[selected[0]].r)}
  if(name==='fish-target'){closeModal();act('ask',Number(idx),Number(extra));selected=[];return}
