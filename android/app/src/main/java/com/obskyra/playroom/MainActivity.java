@@ -1,6 +1,8 @@
 package com.obskyra.playroom;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.webkit.JavascriptInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
@@ -12,6 +14,7 @@ import java.io.IOException;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private BluetoothBridge bluetooth;
     private static final String HOST = "app.playroom.local";
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -27,6 +30,8 @@ public class MainActivity extends Activity {
         web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
+        bluetooth = new BluetoothBridge(this, web);
+        web.addJavascriptInterface(bluetooth, "AACBluetooth");
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
@@ -52,5 +57,17 @@ public class MainActivity extends Activity {
             if (!"true".equals(value)) finish();
         });
     }
-    @Override protected void onDestroy() { if (web != null) web.destroy(); super.onDestroy(); }
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (bluetooth != null) bluetooth.onPermissionsResult(requestCode, grantResults);
+    }
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (bluetooth != null) bluetooth.onActivityResult(requestCode, resultCode);
+    }
+    @Override protected void onDestroy() {
+        if (bluetooth != null) bluetooth.destroy();
+        if (web != null) web.destroy();
+        super.onDestroy();
+    }
 }
