@@ -3,20 +3,20 @@
 <p align="center">A touchscreen-first collection of arcade, board and card games for Android and the browser.<br/>Made for quick games, family play and accessible, straightforward controls.</p>
 
 <p align="center">
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0"><img alt="Version 2.1.0" src="https://img.shields.io/badge/version-2.1.0-6C63FF?style=for-the-badge"></a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.0"><img alt="Version 2.2.0" src="https://img.shields.io/badge/version-2.2.0-6C63FF?style=for-the-badge"></a>
   <a href="#the-game-library"><img alt="16 games" src="https://img.shields.io/badge/games-16-28B99A?style=for-the-badge"></a>
   <a href="#android-installation"><img alt="Android 6+" src="https://img.shields.io/badge/Android-6%2B-3DDC84?style=for-the-badge&logo=android&logoColor=black"></a>
   <a href="#at-a-glance"><img alt="Offline-first" src="https://img.shields.io/badge/play-offline-1F2937?style=for-the-badge"></a>
 </p>
 <p align="center">
   <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml"><img alt="Android build" src="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml/badge.svg?branch=main"></a>
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0"><img alt="Testing release" src="https://img.shields.io/badge/release-testing%20APK-E0A449"></a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.0"><img alt="Testing release" src="https://img.shields.io/badge/release-testing%20APK-E0A449"></a>
   <a href="index.html"><img alt="HTML5 and JavaScript" src="https://img.shields.io/badge/engine-HTML5%20%2B%20JavaScript-F7DF1E?logo=javascript&logoColor=black"></a>
 </p>
 <p align="center">
-  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.1.0/AAC-Playroom-v2.1.0-universal-debug.apk">⬇ Download Android APK</a></strong>
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.2.0/AAC-Playroom-v2.2.0-universal-debug.apk">⬇ Download Android APK</a></strong>
   &nbsp;·&nbsp;
-  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0">📦 Release page</a></strong>
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.0">📦 Release page</a></strong>
   &nbsp;·&nbsp;
   <strong><a href="index.html">🌐 Web-app source</a></strong>
   &nbsp;·&nbsp;
@@ -34,9 +34,9 @@
     <td align="center" width="33%"><strong>📶 Offline-first</strong><br/><sub>Bundled game code and assets</sub></td>
   </tr>
   <tr>
-    <td align="center"><strong>👥 Local play</strong><br/><sub>Same-device modes and CPU opponents</sub></td>
+    <td align="center"><strong>👥 Local + Bluetooth</strong><br/><sub>Same-device modes and Android Bluetooth Classic multiplayer</sub></td>
     <td align="center"><strong>🃏 SVG cards</strong><br/><sub>Vector card faces and backs</sub></td>
-    <td align="center"><strong>🔖 v2.1.0</strong><br/><sub>Debug-signed testing release</sub></td>
+    <td align="center"><strong>🔖 v2.2.0</strong><br/><sub>Debug-signed testing release</sub></td>
   </tr>
 </table>
 
@@ -47,7 +47,7 @@
     <td width="50%" valign="top">
       <h3>🎱 Pool</h3>
       <strong>8-Ball Pool</strong><br/>
-      Practice, CPU opponents, shot power, spin, pockets and local multiplayer/team modes.
+      Practice, CPU opponents, shot power, spin, pockets, local multiplayer/team modes and two-phone Bluetooth.
     </td>
     <td width="50%" valign="top">
       <h3>🧱 Arcade &amp; board</h3>
@@ -77,6 +77,28 @@
 - **Survive:** Asteroids enter from all **four edges**, not just above. Your ship automatically turns and shoots at the nearest asteroid.
 - **Damage:** A short grace period after a hit prevents losing multiple lives from a single cluster.
 
+## 📶 Bluetooth multiplayer (Android)
+
+**New in v2.2.0:** The Android application has a native **Bluetooth Classic RFCOMM** transport. This is **real phone-to-phone communication**; the browser version intentionally does not support Bluetooth Classic.
+
+**Supported across phones:**
+- **8-Ball Pool:** Two players. Moves, cue-ball placement and match state are exchanged, with the host correcting the settled table state after each shot.
+- **Tic-Tac-Toe and Checkers:** Two players. The app sends validated turns/moves and synchronises new rounds.
+- **Card games:** Crazy Eights, Go Fish, Memory Match, Snap, Rummy, Spades and Card Battle. One host and up to **three guest phones** (depending on each game's player limit). The host owns the game state and shares only each player's own private hand. Unfilled seats can be handled by CPUs.
+- **Solitaire and arcade reaction games:** Remain single-player. These games do not have remote multiplayer modes.
+
+### Connect two Android phones
+
+1. Install **the same v2.2.0 testing APK** on both Android phones. Enable Bluetooth on both.
+2. On the first phone, open a supported game → **Nearby Bluetooth** → **Host a game**. Accept Android's *Nearby devices* permission and the **discoverable** prompt.
+3. On the second phone, open the same game → **Nearby Bluetooth** → **Join a game**. Give Android Nearby devices or Location permission if prompted. The host should appear in the device list; tap it.
+4. Accept any Android **Bluetooth pairing request / matching code** on both phones. Card games let the host choose when to start. Pool and board games begin when the connection succeeds.
+5. Play normally. The game uses the local Bluetooth connection, not the internet. If a device disconnects, the games provide an error/exit state; the card host can replace a disconnected player with a CPU.
+
+For Android 6–11, discovery requires the **Location permission** and sometimes Location enabled at system level. On Android 12+, use the **Nearby devices** permission. If the friend is absent from search, confirm that the host is still discoverable, the devices are within Bluetooth range, and both can see each other in Android's Bluetooth settings.
+
+**Limits:** Two-device pool and board games, and up to four phones for eligible card modes. Bluetooth Classic requires Android devices and supported hardware. No online matchmaking, Wi-Fi relay, iOS connectivity, voice chat or Bluetooth mode for single-player arcade games. This is a **testing build**: cross-device behaviour still requires validation on real phones, despite successful compilation.
+
 ## 📦 Android CPU architectures
 
 **One universal APK supports ARM32 (`armeabi-v7a`), ARM64 (`arm64-v8a`), x86 and x86-64.** These are not separate downloads because the app currently contains HTML, JavaScript and Android framework code without architecture-specific native `.so` files.
@@ -92,10 +114,10 @@ Requires **Android 6.0 (API 23) or later**, and a functional Android System WebV
 
 ## 🚀 Android installation
 
-> **Current release:** [AAC Playroom v2.1.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0) — **testing / pre-release**.
+> **Current release:** [AAC Playroom v2.2.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.0) — **testing / pre-release**.
 
-1. Open the **[APK download](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.1.0/AAC-Playroom-v2.1.0-universal-debug.apk)** on your Android device.
-2. Download the `AAC-Playroom-v2.1.0-universal-debug.apk` file.
+1. Open the **[APK download](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.2.0/AAC-Playroom-v2.2.0-universal-debug.apk)** on your Android device.
+2. Download the `AAC-Playroom-v2.2.0-universal-debug.apk` file.
 3. Allow your browser or file manager to install apps from that source when Android prompts you.
 4. Install and launch **Playroom**.
 
@@ -134,7 +156,7 @@ Android builds require **JDK 17**, **Android SDK 35** and a compatible Gradle in
 ├── scripts/
 │   ├── check.mjs                      # Lightweight checks
 │   └── build.mjs                      # Web + Android asset packaging
-├── android/                            # Native WebView Android wrapper
+├── android/                            # WebView wrapper + native Bluetooth Classic RFCOMM bridge
 ├── .github/workflows/android.yml      # APK build and GitHub Release publishing
 ├── CHANGELOG.md                        # Release history
 └── CONTRIBUTING.md                     # Development guidance
@@ -148,7 +170,8 @@ Android builds require **JDK 17**, **Android SDK 35** and a compatible Gradle in
 | CPU and supported same-device play modes | ✅ Implemented |
 | Portrait / landscape presentation | ✅ Implemented; device validation ongoing |
 | Android debug APK on GitHub Releases | ✅ Available |
-| Real phone-to-phone Bluetooth multiplayer | 🚧 **Not implemented in the Android wrapper** |
+| Bluetooth Classic native host, discovery and pairing | ✅ Implemented; real-device connection testing required |
+| Bluetooth multiplayer for pool, two board games and seven card games | ✅ Implemented in source; two-phone validation pending |
 | Fully verified game rules and physics on physical devices | 🧪 Further testing needed |
 | Public hosted browser game / GitHub Pages | ⏳ Not configured |
 
@@ -171,7 +194,7 @@ A public software licence has **not** been added to this repository. Do not assu
 <div align="center">
   <strong>🎮 PLAYROOM</strong><br/>
   <sub>Pick a game. Share the screen. Have fun.</sub><br/><br/>
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0">Download v2.1.0</a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.2.0">Download v2.2.0</a>
   ·
   <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/issues">Report an issue</a>
 </div>
