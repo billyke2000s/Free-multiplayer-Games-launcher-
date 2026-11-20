@@ -651,7 +651,7 @@ root.PoolGameV4={start};
 (()=>{'use strict';
 const $=s=>document.querySelector(s), area=$('#gameArea'), title=$('#gameTitle'), label=$('#gameLabel');
 const library=$('#library'), screen=$('#playScreen'), modal=$('#modalLayer');
-let active=null, currentId=null, sound=false, audio=null;
+let active=null, currentId=null, sound=false, audio=null, arcadeBt=null;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),rnd=(a,b)=>a+Math.random()*(b-a),choice=a=>a[Math.floor(Math.random()*a.length)];
 function tone(f=500,ms=65){if(!sound)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.035,audio.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+ms/1000);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+ms/1000)}catch{}}
 function syncSound(){for(const b of [$('#soundButton'),$('#soundGameBtn')]){b.setAttribute('aria-label',sound?'Mute sounds':'Turn sound on');b.setAttribute('aria-pressed',String(sound));b.textContent=sound?'♫':'♪';} }
@@ -682,7 +682,7 @@ $('#gameGrid').innerHTML=games.map(([id,name,desc,color])=>`<button class="game-
 $('#gameGrid').addEventListener('click',e=>{const b=e.target.closest('[data-game]');if(b)openGame(b.dataset.game)});
 const poolFeature=$('#poolFeature');poolFeature.onclick=()=>openGame('pool');poolFeature.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGame('pool')}};
 function cleanup(){if(active){active.destroy?.();active=null;}closeModal();area.innerHTML='';}
-function closeGame(){exitImmersive();cleanup();currentId=null;screen.classList.add('hidden');library.classList.remove('hidden');document.title='AAC Playroom — Games'}
+function closeGame(){stopArcadeBt();exitImmersive();cleanup();currentId=null;screen.classList.add('hidden');library.classList.remove('hidden');document.title='AAC Playroom — Games'}
 function openGame(id){if(!['pool',...games.map(x=>x[0])].includes(id))return;cleanup();currentId=id;library.classList.add('hidden');screen.classList.remove('hidden');screen.classList.add('immersive');$('#immersiveBack').classList.remove('hidden');title.textContent=id==='pool'?'8-Ball Pool':games.find(x=>x[0]===id)[1];label.textContent='NOW PLAYING';document.title=title.textContent+' — AAC Playroom';if(id==='pool')poolMode();else if(id==='ttt')tttMode();else if(id==='checkers')checkersMode();else startArcade(id)}
 function restart(){if(!currentId)return;closeModal();openGame(currentId)}
 $('#fullscreenBtn').onclick=async()=>{if(screen.classList.contains('immersive')){exitImmersive();return}screen.classList.add('immersive');$('#immersiveBack').classList.remove('hidden');try{if(screen.requestFullscreen){await screen.requestFullscreen();if(window.screen?.orientation?.lock)try{await window.screen.orientation.lock('landscape')}catch{}}}catch{ /* Immersive CSS fallback in embedded WebViews. */ }};
@@ -694,6 +694,107 @@ $('#restartBtn').onclick=()=>{if(!currentId)return;showModal('Start over?','Your
 function showModal(head,body,actions,emoji='✦'){modal.innerHTML=`<div class="dialog" role="dialog" aria-modal="true" aria-label="${head.replace(/[&<>"']/g,'')}"><span class="trophy">${emoji}</span><h2>${head}</h2><p>${body}</p><div class="dialog-actions" id="dialogActions"></div></div>`;const wrap=modal.querySelector('#dialogActions');actions.forEach(a=>{const b=document.createElement('button');b.textContent=a.text;b.className=a.primary?'primary-button':'secondary-button';b.onclick=a.fn;wrap.appendChild(b)});modal.classList.remove('hidden');modal.querySelector('button')?.focus()}
 function closeModal(){modal.classList.add('hidden');modal.innerHTML=''}
 function modeMenu(head,desc,options){area.innerHTML=`<div class="screen-layout"><div class="mode-card"><div class="pill">CHOOSE YOUR MODE</div><h2>${head}</h2><p>${desc}</p><div class="mode-options" id="modeOptions"></div></div></div>`;const box=$('#modeOptions');options.forEach(x=>{const b=document.createElement('button');b.className='mode-option';b.innerHTML=`<span><strong>${x.name}</strong><small>${x.desc}</small></span><span class="arrow">→</span>`;b.onclick=()=>{try{const p=screen.requestFullscreen?.({navigationUI:'hide'});p?.then?.(()=>{if(currentId==='pool')window.screen?.orientation?.lock?.('landscape').catch(()=>{});}).catch?.(()=>{});}catch{}cleanup();x.fn()};box.appendChild(b)})}
+// Native Bluetooth Classic is shared with Card Club through one event stream.
+// Board-game move messages are turn-validated on both phones; no Internet or backend.
+function sendArcadeBt(data){
+ if(!arcadeBt?.connected||!window.AACBluetooth)return;
+ try{window.AACBluetooth.send(JSON.stringify(data))}catch{showModal('Bluetooth error','Could not send the move.')}
+}
+function stopArcadeBt(){
+ if(arcadeBt){try{window.AACBluetooth?.stop()}catch{}arcadeBt=null}
+}
+function arcadeNearby(game){
+ if(!window.AACBluetooth?.isSupported?.()){
+  showModal('Android Bluetooth required','Bluetooth phone-to-phone play needs the Android APK and a phone with Bluetooth Classic.',[{text:'Back',fn:closeModal}]);
+  return;
+ }
+ modeMenu('Nearby Bluetooth','Play on two Android phones with the same app version. One hosts, the other joins. Bluetooth does not require Wi-Fi.',[
+  {name:'Host a game',desc:'Make this phone visible and let a friend join',fn:()=>{
+   arcadeBt={game,role:'host',connected:false,started:false,peer:null};
+   modeMenu('Waiting for friend','Accept the Android discoverability prompt. On the second phone choose Join and select this phone.',[
+    {name:'Cancel Bluetooth',desc:'Return to the game library',fn:closeGame}
+   ]);
+   window.AACBluetooth.host();
+  }},
+  {name:'Join a game',desc:'Search for a friend who is hosting',fn:()=>{
+   arcadeBt={game,role:'client',connected:false,started:false,peer:null};
+   modeMenu('Searching nearby','Your friend needs to be hosting and discoverable. Previously paired devices appear too.',[
+    {name:'Cancel Bluetooth',desc:'Return to games',fn:closeGame}
+   ]);
+   window.AACBluetooth.pairedDevices();
+  }}
+ ]);
+}
+function arcadeBtFoundDevices(devices){
+ if(!arcadeBt||arcadeBt.role!=='client'||arcadeBt.connected)return;
+ const options=(devices||[]).filter(d=>d&&typeof d.address==='string').slice(0,25).map(d=>({
+   name:(d.name||'Bluetooth device')+(d.paired?' · paired':''),
+   desc:'Tap to connect to '+d.address,
+   fn:()=>{
+     const address=d.address;
+     modeMenu('Connecting','Accept the Android pairing prompt if it appears. The host needs to keep their Bluetooth room open.',[
+      {name:'Cancel',desc:'Close connection',fn:closeGame}
+     ]);
+     window.AACBluetooth.connectTo(address);
+   }
+ }));
+ options.push({name:'Scan again',desc:'Look for newly visible phones',fn:()=>{
+  modeMenu('Searching nearby','Looking for the host phone…',[{name:'Cancel',desc:'Return to games',fn:closeGame}]);
+  window.AACBluetooth.pairedDevices();
+ }});
+ options.push({name:'Cancel',desc:'Return to games',fn:closeGame});
+ modeMenu('Join a Bluetooth game',devices.length?'Choose the host phone below.':'No phones found yet. Make the host discoverable, then scan again.',options);
+}
+function startArcadeBluetoothGame(){
+ if(!arcadeBt||arcadeBt.started)return;
+ arcadeBt.started=true;
+ cleanup();
+ if(arcadeBt.game==='ttt')startTTT(false);
+ else if(arcadeBt.game==='checkers')startCheckers(false);
+ else if(arcadeBt.game==='pool')startPool('local');
+}
+function onArcadeBt(ev){
+ if(!arcadeBt)return;
+ if(ev.type==='status'){
+  if(ev.state==='error'&&ev.message)showModal('Bluetooth connection issue',ev.message,[
+   {text:'Try again',primary:true,fn:()=>{const game=arcadeBt.game;stopArcadeBt();closeModal();arcadeNearby(game)}},
+   {text:'Games',fn:closeGame}
+  ]);
+  return;
+ }
+ if(ev.type==='peers'&&arcadeBt.role==='client'&&!arcadeBt.connected){arcadeBtFoundDevices(ev.peers||[]);return}
+ if(ev.type==='connected'){
+  if(arcadeBt.role==='host'&&!arcadeBt.connected){
+   arcadeBt.connected=true;arcadeBt.peer=ev.peerId;
+   startArcadeBluetoothGame();
+   sendArcadeBt({type:'arcade_start',game:arcadeBt.game,version:1});
+  }else if(arcadeBt.role==='client'){
+   arcadeBt.connected=true;arcadeBt.peer=ev.peerId;
+   modeMenu('Connected — waiting for host','Your phone is connected. Your friend will start the match.',[
+    {name:'Disconnect',desc:'Return to games',fn:closeGame}
+   ]);
+  }
+  return;
+ }
+ if(ev.type==='disconnected'){
+  if(arcadeBt.connected&&arcadeBt.peer===ev.peerId){
+   arcadeBt.connected=false;
+   showModal('Friend disconnected','The Bluetooth connection has ended. This game cannot continue across phones.',[{text:'Games',fn:closeGame}]);
+  }
+  return;
+ }
+ if(ev.type==='message'&&arcadeBt.connected&&ev.peerId===arcadeBt.peer){
+  let m;try{m=JSON.parse(ev.data)}catch{return}
+  if(!m||typeof m!=='object')return;
+  if(m.type==='arcade_start'&&arcadeBt.role==='client'&&m.game===arcadeBt.game&&m.version===1){
+    startArcadeBluetoothGame();
+  }else if(arcadeBt.started&&m.game===arcadeBt.game&&active?.bluetoothReceive){
+    active.bluetoothReceive(m);
+  }
+ }
+}
+window.addEventListener('aac-bluetooth',event=>onArcadeBt(event.detail));
+
 function poolMode(){modeMenu('How will you play?','A more detailed pool simulation with sliding-to-rolling motion, topspin, draw, sidespin and real match turns. Choose a match below.',[
 {name:'You vs CPU · Easy',desc:'Practice against a relaxed computer opponent',fn:()=>startPool('cpu-easy')},
 {name:'You vs CPU · Medium',desc:'A club-level opponent',fn:()=>startPool('cpu-medium')},
@@ -701,14 +802,17 @@ function poolMode(){modeMenu('How will you play?','A more detailed pool simulati
 {name:'Practice table',desc:'No opponent, experiment with spin and undo your last shot',fn:()=>startPool('practice')},
 {name:'Two players',desc:'Pass and play on one device',fn:()=>startPool('local')},
 {name:'2v2 · Friends vs CPUs',desc:'Two local players vs two computer opponents',fn:()=>startPool('duo-cpu')},
-{name:'2v2 · Four players',desc:'Four friends, two teams, one screen',fn:()=>startPool('duo-local')}
+{name:'2v2 · Four players',desc:'Four friends, two teams, one screen',fn:()=>startPool('duo-local')},
+{name:'Nearby Bluetooth · two phones',desc:'Play 8-ball pool with a friend using two Android phones',fn:()=>arcadeNearby('pool')}
 ])}
 function tttMode(){modeMenu('Tic-Tac-Toe','Take turns, make three in a row. The computer plays a strong game.',[
 {name:'Against CPU',desc:'Play X against the computer’s O',fn:()=>startTTT(true)},
-{name:'Two players',desc:'Play together, taking turns',fn:()=>startTTT(false)}])}
+{name:'Two players',desc:'Play together, taking turns',fn:()=>startTTT(false)},
+{name:'Nearby Bluetooth · two phones',desc:'Take turns over Bluetooth on separate phones',fn:()=>arcadeNearby('ttt')}])}
 function checkersMode(){modeMenu('Checkers','Capture diagonally, crown kings and win the board.',[
 {name:'Against CPU',desc:'An opponent that looks for captures',fn:()=>startCheckers(true)},
-{name:'Two players',desc:'Play together on one device',fn:()=>startCheckers(false)}])}
+{name:'Two players',desc:'Play together on one device',fn:()=>startCheckers(false)},
+{name:'Nearby Bluetooth · two phones',desc:'Play checkers on two Android phones',fn:()=>arcadeNearby('checkers')}])}
 // ─── EIGHT-BALL POOL ───────────────────────────────────────────────────────
 function startPool(mode){
  active=window.PoolGameV4.start(mode,{area,showModal,closeModal,closeGame,tone,restart:()=>{cleanup();startPool(mode)}});
@@ -1390,7 +1494,8 @@ if(!CPU_PACE[cpuPace])cpuPace='normal';
 
 // Native bridge events come from Android only; browser fallback remains offline local play.
 const android=typeof window.AACBluetooth!=='undefined';
-window.AACBluetoothEvent=(str)=>{let ev;try{ev=JSON.parse(str)}catch{return}onBluetooth(ev)};
+window.AACBluetoothEvent=(str)=>{let ev;try{ev=JSON.parse(str)}catch{return}window.dispatchEvent(new CustomEvent('aac-bluetooth',{detail:ev}))};
+window.addEventListener('aac-bluetooth',event=>onBluetooth(event.detail));
 function btCall(name,...args){try{return window.AACBluetooth[name](...args)}catch(e){showToast('Bluetooth: '+e.message);return null}}
 function sendBt(obj){if(android)btCall('send',JSON.stringify(obj))}
 function hostSend(peer,obj){if(android)btCall('sendTo',peer,JSON.stringify(obj))}
