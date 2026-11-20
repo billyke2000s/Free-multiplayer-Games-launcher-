@@ -3,20 +3,20 @@
 <p align="center">A touchscreen-first collection of arcade, board and card games for Android and the browser.<br/>Made for quick games, family play and accessible, straightforward controls.</p>
 
 <p align="center">
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0"><img alt="Version 2.0.0" src="https://img.shields.io/badge/version-2.0.0-6C63FF?style=for-the-badge"></a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0"><img alt="Version 2.1.0" src="https://img.shields.io/badge/version-2.1.0-6C63FF?style=for-the-badge"></a>
   <a href="#the-game-library"><img alt="16 games" src="https://img.shields.io/badge/games-16-28B99A?style=for-the-badge"></a>
   <a href="#android-installation"><img alt="Android 6+" src="https://img.shields.io/badge/Android-6%2B-3DDC84?style=for-the-badge&logo=android&logoColor=black"></a>
   <a href="#at-a-glance"><img alt="Offline-first" src="https://img.shields.io/badge/play-offline-1F2937?style=for-the-badge"></a>
 </p>
 <p align="center">
   <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml"><img alt="Android build" src="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/actions/workflows/android.yml/badge.svg?branch=main"></a>
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0"><img alt="Testing release" src="https://img.shields.io/badge/release-testing%20APK-E0A449"></a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0"><img alt="Testing release" src="https://img.shields.io/badge/release-testing%20APK-E0A449"></a>
   <a href="index.html"><img alt="HTML5 and JavaScript" src="https://img.shields.io/badge/engine-HTML5%20%2B%20JavaScript-F7DF1E?logo=javascript&logoColor=black"></a>
 </p>
 <p align="center">
-  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.0.0/AAC-Playroom-v2.0.0-debug.apk">⬇ Download Android APK</a></strong>
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.1.0/AAC-Playroom-v2.1.0-universal-debug.apk">⬇ Download Android APK</a></strong>
   &nbsp;·&nbsp;
-  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0">📦 Release page</a></strong>
+  <strong><a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0">📦 Release page</a></strong>
   &nbsp;·&nbsp;
   <strong><a href="index.html">🌐 Web-app source</a></strong>
   &nbsp;·&nbsp;
@@ -36,7 +36,7 @@
   <tr>
     <td align="center"><strong>👥 Local play</strong><br/><sub>Same-device modes and CPU opponents</sub></td>
     <td align="center"><strong>🃏 SVG cards</strong><br/><sub>Vector card faces and backs</sub></td>
-    <td align="center"><strong>🔖 v2.0.0</strong><br/><sub>Debug-signed testing release</sub></td>
+    <td align="center"><strong>🔖 v2.1.0</strong><br/><sub>Debug-signed testing release</sub></td>
   </tr>
 </table>
 
@@ -63,16 +63,43 @@
   </tr>
 </table>
 
+## 🎮 Controls
+
+### 🎱 8-Ball Pool
+- **Aim:** Tap or drag across the felt to position the cue. Table movement never takes a shot.
+- **Fine aim:** Drag the small aiming wheel to make precise adjustments, or use its left/right keyboard arrows.
+- **Shoot:** Pull the vertical **power bar down** and release. A longer pull delivers a harder shot; release without pulling to cancel.
+- **Spin:** Drag the red contact-point marker on the cue ball to set topspin, backspin or side spin; **Reset** recentres it.
+- **Options:** Move the power bar between left and right, show/hide the aiming wheel, and toggle tap-to-aim from the pool menu.
+
+### 🚀 Space Explorer
+- **Move:** Use the on-screen, 360-degree **joystick** to fly both horizontally and vertically. Keyboard **WASD** and arrow keys also work.
+- **Survive:** Asteroids enter from all **four edges**, not just above. Your ship automatically turns and shoots at the nearest asteroid.
+- **Damage:** A short grace period after a hit prevents losing multiple lives from a single cluster.
+
+## 📦 Android CPU architectures
+
+**One universal APK supports ARM32 (`armeabi-v7a`), ARM64 (`arm64-v8a`), x86 and x86-64.** These are not separate downloads because the app currently contains HTML, JavaScript and Android framework code without architecture-specific native `.so` files.
+
+| Architecture | APK |
+|:--|:--|
+| ARM32 / `armeabi-v7a` | Universal APK |
+| ARM64 / `arm64-v8a` | Universal APK |
+| Intel / `x86` | Universal APK |
+| Intel / `x86_64` | Universal APK |
+
+Requires **Android 6.0 (API 23) or later**, and a functional Android System WebView. Support for an instruction set does not guarantee every device's WebView runs the games identically. If native libraries are added in future, this packaging will need reviewing.
+
 ## 🚀 Android installation
 
-> **Current release:** [AAC Playroom v2.0.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0) — **testing / pre-release**.
+> **Current release:** [AAC Playroom v2.1.0](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0) — **testing / pre-release**.
 
-1. Open the **[APK download](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.0.0/AAC-Playroom-v2.0.0-debug.apk)** on your Android device.
-2. Download the `AAC-Playroom-v2.0.0-debug.apk` file.
+1. Open the **[APK download](https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/download/v2.1.0/AAC-Playroom-v2.1.0-universal-debug.apk)** on your Android device.
+2. Download the `AAC-Playroom-v2.1.0-universal-debug.apk` file.
 3. Allow your browser or file manager to install apps from that source when Android prompts you.
 4. Install and launch **Playroom**.
 
-The APK is **debug-signed** for testing, not a production-signed Play Store release. Existing installations signed with another key may need to be uninstalled first (which can remove locally saved game data). This is a **private repository**, so GitHub links may require a signed-in account with access.
+The universal APK is **debug-signed** for testing, not a production-signed Play Store release. Existing installations signed with another key may need to be uninstalled first (which can remove locally saved game data). This is a **private repository**, so GitHub links may require a signed-in account with access.
 
 ## 💻 Run the browser version
 
@@ -144,7 +171,7 @@ A public software licence has **not** been added to this repository. Do not assu
 <div align="center">
   <strong>🎮 PLAYROOM</strong><br/>
   <sub>Pick a game. Share the screen. Have fun.</sub><br/><br/>
-  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.0.0">Download v2.0.0</a>
+  <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/releases/tag/v2.1.0">Download v2.1.0</a>
   ·
   <a href="https://github.com/billyke2000s/Free-multiplayer-Games-launcher-/issues">Report an issue</a>
 </div>
