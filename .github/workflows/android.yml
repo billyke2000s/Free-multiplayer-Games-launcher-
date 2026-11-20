@@ -1,11 +1,13 @@
-name: Build Playroom APK
+name: Build and publish Playroom APK
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+
 permissions:
-  contents: read
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -27,7 +29,21 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Playroom-APK
-          path: android/app/build/outputs/apk/debug/*.apk
+      - name: Publish installable APK in GitHub Releases
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=$(find android/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)
+          test -n "$APK"
+          cp "$APK" AAC-Playroom-v2.0.0-debug.apk
+          if gh release view v2.0.0 >/dev/null 2>&1; then
+            gh release upload v2.0.0 AAC-Playroom-v2.0.0-debug.apk --clobber
+          else
+            gh release create v2.0.0 AAC-Playroom-v2.0.0-debug.apk \
+              --target "$GITHUB_SHA" \
+              --title "AAC Playroom v2.0.0 — 16 games" \
+              --notes "Offline Android testing APK with 16 games. Debug-signed test build; no Bluetooth phone-to-phone gameplay yet." \
+              --prerelease
+          fi
