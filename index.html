@@ -472,7 +472,7 @@ function updateUI(){const person=getActive(), moving=e.shotRunning;
 }
 function changeTurn(keep){if(practice)return;const tm=getTeam();if(!teamModes){if(!keep)current=current===0?1:0;return}const target=keep?tm:1-tm;const possible=players.map((p,i)=>({p,i})).filter(x=>x.p.team===target);const next=possible.find(x=>x.i>current);current=(next||possible[0]).i;}
 function safePlaceCue(){const cue=e.cue;if(cue.alive&&e.canPlace(cue.x,cue.y))return;for(let x=220;x<850;x+=28)for(let y=260;y<433;y+=27){if(e.canPlace(x,y)){e.placeCue(x,y);return;}}cue.alive=true;cue.x=240;cue.y=260;}
-function endTurn(){const pot=e.pocketed.slice(),tm=shooter?.team??getTeam(),first=e.firstContact,foulScratch=pot.includes(0);const wrongFirst=!validFirst(first,tm);const noRail=!e.railAfterContact&&pot.length===0;const foul=wrongFirst||foulScratch||noRail;
+function endTurn(){resetShotPower();const pot=e.pocketed.slice(),tm=shooter?.team??getTeam(),first=e.firstContact,foulScratch=pot.includes(0);const wrongFirst=!validFirst(first,tm);const noRail=!e.railAfterContact&&pot.length===0;const foul=wrongFirst||foulScratch||noRail;
 const coloured=pot.filter(id=>id!==0&&id!==8),eight=pot.includes(8);
 shotCount++;
 if(practice){if(foulScratch){safePlaceCue();ballInHand=true;textStatus('Scratch — tap a clear spot for ball in hand.')}else{textStatus(`${pot.length?pot.length+' ball(s) pocketed. ':''}Ready for your next shot.`)}updateUI();return;}
@@ -492,7 +492,7 @@ function shoot(angle,force,fromRemote=false,remoteSpin=null){
  shotSnapshot=practice?e.snapshot():null;shooter={...getActive()};
  if(e.shoot(angle,force,shotSpin)){
   if(bt&&!fromRemote)bt.send({type:'arcade_pool_shot',game:'pool',angle,force,spin:{x:shotSpin.x,y:shotSpin.y},shotCount});
-  textStatus('Stroke delivered — watch the rolling balls.');updateUI();tone(185,60);setPowerPreview(0);
+  resetShotPower();textStatus('Stroke delivered — watch the rolling balls.');updateUI();tone(185,60);
  }
 }
 function aiPlacement(){if(!ballInHand)return;const position=root.PoolAIV6.selectBallInHand(e,groups[getTeam()]);if(!e.placeCue(position.x,position.y))safePlaceCue();ballInHand=false;}
@@ -504,9 +504,9 @@ async function cpuTurn(){cpuid=0;if(!getActive().cpu||finished||e.shotRunning)re
     const legal=e.balls.filter(b=>b.alive&&validFirst(b.id,acting.team));const target=legal.sort((a,b)=>dist(a,e.cue)-dist(b,e.cue))[0];
     angle=target?Math.atan2(target.y-e.cue.y,target.x-e.cue.x):0;pwr=.63;
   }
-  power=pwr;pSliderApply();tip={x:0,y:selection?.spin||0};shooter={...getActive()};
+  resetShotPower();tip={x:0,y:selection?.spin||0};shooter={...getActive()};
   textStatus(`${shooter.name} chose ${selection?.kind||'a safety'} shot (${selection?.evaluated||0} simulated options).`);
-  e.shoot(angle,pwr,tip);updateUI();tone(190,55);
+  e.shoot(angle,pwr,tip);resetShotPower();updateUI();tone(190,55);
 }
 function setPowerPreview(value){
  power=clamp(value,0,1);
@@ -514,7 +514,12 @@ function setPowerPreview(value){
  powerRange.setAttribute('aria-valuenow',String(Math.round(power*100)));
  $('#pvPowerVal').textContent=power>.015?Math.round(power*100)+'%':'PULL ↓';
 }
-function pSliderApply(){setPowerPreview(power)}
+// Every stroke/turn starts with zero power, including CPU and Bluetooth turns.
+function resetShotPower(){
+ if(powerDrag)try{powerRange.releasePointerCapture(powerDrag.id)}catch{}
+ powerDrag=null;
+ setPowerPreview(0);
+}
 function placeBall(p,fromRemote=false){
  if(!ballInHand||(bt&&(fromRemote?localTurn():!localTurn())))return false;
  if(!Number.isFinite(p.x)||!Number.isFinite(p.y))return false;
@@ -529,29 +534,43 @@ function xy(ev){const r=can.getBoundingClientRect();const x=vertical?(ev.clientY
 // All physics and pointer coordinates use 1000×520 world-space units.
 function resize(){const r=box.getBoundingClientRect();if(!r.width||!r.height)return;vertical=r.height>r.width*1.2;let width=vertical?Math.min(r.height,r.width*1000/520):Math.min(r.width,r.height*1000/520);width=Math.max(1,width);can.style.width=width+'px';can.style.height=width*520/1000+'px';can.style.transform=vertical?'rotate(90deg)':'none';can.style.maxHeight='none';can.style.maxWidth='none';}
 resizeObserver=new ResizeObserver(resize);resizeObserver.observe(box);resize();
-const noDrag=(ev)=>{try{can.releasePointerCapture(ev.pointerId)}catch{}};
+function setAimAngle(value){
+ aim=Math.atan2(Math.sin(value),Math.cos(value));
+ wheelDial.style.transform=`rotate(${aim}rad)`;
+ aimWheel.setAttribute('aria-valuenow',String(Math.round(aim*180/Math.PI)));
+}
+const noDrag=ev=>{try{can.releasePointerCapture(ev.pointerId)}catch{}};
 can.addEventListener('pointerdown',ev=>{
  ev.preventDefault();
- if(e.shotRunning||finished||getActive().cpu||!localTurn())return;
- const p=xy(ev);drag={at:p,now:p,moved:false};can.setPointerCapture?.(ev.pointerId);
+ if(drag||e.shotRunning||finished||getActive().cpu||!localTurn())return;
+ const p=xy(ev);drag={id:ev.pointerId,at:p,now:p,moved:false};can.setPointerCapture?.(ev.pointerId);
 });
 can.addEventListener('pointermove',ev=>{
- if(!drag||e.shotRunning||finished||getActive().cpu||!localTurn())return;
- const p=xy(ev);drag.now=p;
+ if(!drag||drag.id!==ev.pointerId||e.shotRunning||finished||getActive().cpu||!localTurn())return;
+ const p=xy(ev),old=drag.now;drag.now=p;
  if(Math.hypot(p.x-drag.at.x,p.y-drag.at.y)>7)drag.moved=true;
- if(!ballInHand&&drag.moved){aim=Math.atan2(p.y-e.cue.y,p.x-e.cue.x);wheelDial.style.transform=`rotate(${aim}rad)`;}
+ if(!ballInHand&&drag.moved){
+  // Touch drag rotates the cue around the ball, rather than snapping to the finger.
+  const c=e.cue,ax=old.x-c.x,ay=old.y-c.y,bx=p.x-c.x,by=p.y-c.y;
+  if(Math.hypot(ax,ay)>R*3&&Math.hypot(bx,by)>R*3){
+   const before=Math.atan2(ay,ax),after=Math.atan2(by,bx);
+   setAimAngle(aim+Math.atan2(Math.sin(after-before),Math.cos(after-before)));
+  }else setAimAngle(aim+(p.x-old.x)*.004);
+ }
 });
 can.addEventListener('pointerup',ev=>{
- if(!drag)return;
+ if(!drag||drag.id!==ev.pointerId)return;
  const previous=drag;drag=null;noDrag(ev);
  if(e.shotRunning||finished||getActive().cpu||!localTurn())return;
  const p=xy(ev);
  if(ballInHand){placeBall(p);return}
- if(prefs.tapAim||previous.moved){
-   if(Math.hypot(p.x-e.cue.x,p.y-e.cue.y)>R*1.5){aim=Math.atan2(p.y-e.cue.y,p.x-e.cue.x);wheelDial.style.transform=`rotate(${aim}rad)`;textStatus('Aim set. Pull the power bar down and release to shoot.')}
+ // Tap-to-aim is optional; ending a drag keeps the rotated angle unchanged.
+ if(!previous.moved&&prefs.tapAim&&Math.hypot(p.x-e.cue.x,p.y-e.cue.y)>R*1.5){
+  setAimAngle(Math.atan2(p.y-e.cue.y,p.x-e.cue.x));
  }
+ if(previous.moved||prefs.tapAim)textStatus('Aim set. Pull the power bar down and release to shoot.');
 });
-can.addEventListener('pointercancel',ev=>{drag=null;noDrag(ev)});
+can.addEventListener('pointercancel',ev=>{if(drag?.id===ev.pointerId)drag=null;noDrag(ev)});
 shootBtn.onclick=()=>shoot(aim,power);
 function setTip(x,y){if(!localTurn())return;const radius=Math.hypot(x,y);tip={x:radius>1?x/radius:x,y:radius>1?y/radius:y};updateUI()}
 function updateTipFromPoint(ev){const r=spin.getBoundingClientRect();const x=((ev.clientX-r.left)/r.width-.5)*2.12,y=(.5-(ev.clientY-r.top)/r.height)*2.12;setTip(x,y)}
@@ -577,7 +596,7 @@ function stopPull(ev,cancel=false){
  const force=power;powerDrag=null;
  try{powerRange.releasePointerCapture(ev.pointerId)}catch{}
  if(!cancel&&force>=.055&&powerAllowed())shoot(aim,force);
- else setPowerPreview(0);
+ resetShotPower();
 }
 powerRange.addEventListener('pointerup',ev=>stopPull(ev));
 powerRange.addEventListener('pointercancel',ev=>stopPull(ev,true));
@@ -593,15 +612,12 @@ aimWheel.addEventListener('pointerdown',ev=>{
 });
 aimWheel.addEventListener('pointermove',ev=>{
  if(!aimDrag||aimDrag.id!==ev.pointerId)return;
- aim=aimDrag.angle+(ev.clientX-aimDrag.x)*.0035;
- wheelDial.style.transform=`rotate(${aim}rad)`;
- aimWheel.setAttribute('aria-valuenow',String(Math.round(aim*180/Math.PI)));
+ setAimAngle(aimDrag.angle+(ev.clientX-aimDrag.x)*.0035);
 });
 for(const kind of ['pointerup','pointercancel'])aimWheel.addEventListener(kind,()=>{aimDrag=null});
 aimWheel.addEventListener('keydown',ev=>{
  if(ev.key!=='ArrowLeft'&&ev.key!=='ArrowRight')return;
- ev.preventDefault();aim+=(ev.key==='ArrowRight'?1:-1)*Math.PI/360;
- wheelDial.style.transform=`rotate(${aim}rad)`;
+ ev.preventDefault();setAimAngle(aim+(ev.key==='ArrowRight'?1:-1)*Math.PI/360);
 });
 setPowerPreview(0);
 $('#pvSettings').onclick=()=>{showModal('Pool options','Choose a useful table action.',[
@@ -614,9 +630,53 @@ $('#pvSettings').onclick=()=>{showModal('Pool options','Choose a useful table ac
 ...(practice?[{text:'Undo last stroke',primary:true,fn:()=>{closeModal();if(!shotSnapshot)return;e.restore(shotSnapshot);ballInHand=false;textStatus('Previous shot restored.');updateUI();}}]:[]),
 {text:'Switch game',fn:closeGame}
 ],'🎱')};
-function rayGuide(){if(!aimGuide||e.shotRunning||ballInHand||finished||getActive().cpu||!localTurn())return;const c=e.cue,dx=Math.cos(aim),dy=Math.sin(aim);let best=1000,hit=null,ix=null,iy=null;for(const b of e.balls){if(!b.alive||b.id===0)continue;const rx=b.x-c.x,ry=b.y-c.y,p=rx*dx+ry*dy,off=Math.abs(rx*dy-ry*dx);if(off>=2*R||p<=0)continue;const t=p-Math.sqrt(4*R*R-off*off);if(t<best){best=t;hit=b;ix=c.x+dx*t;iy=c.y+dy*t}}const limit=hit?best:Math.min(850,((dx>0?LIMITS.right-R-c.x:c.x-(LIMITS.left+R))/Math.abs(dx||.0001)),((dy>0?LIMITS.bottom-R-c.y:c.y-(LIMITS.top+R))/Math.abs(dy||.0001)));ctx.save();ctx.strokeStyle='#ecfff8b5';ctx.lineWidth=2.25;ctx.setLineDash([10,8]);ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+dx*limit,c.y+dy*limit);ctx.stroke();ctx.setLineDash([]);
-if(hit){ctx.fillStyle='#fff5';ctx.strokeStyle='#fff9';ctx.beginPath();ctx.arc(ix,iy,R,0,TAU);ctx.fill();ctx.stroke();const nX=(hit.x-ix)/(2*R),nY=(hit.y-iy)/(2*R),out=clamp((Math.hypot(hit.x-ix,hit.y-iy)),0,1);ctx.strokeStyle='#e6ca8b70';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(hit.x,hit.y);ctx.lineTo(hit.x+nX*48,hit.y+nY*48);ctx.stroke();}
-ctx.strokeStyle='#e3c69c';ctx.lineWidth=7;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(c.x-dx*(30+power*55),c.y-dy*(30+power*55));ctx.lineTo(c.x-dx*(175+power*62),c.y-dy*(175+power*62));ctx.stroke();ctx.strokeStyle='#a16a3d';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(c.x-dx*(125+power*62),c.y-dy*(125+power*62));ctx.lineTo(c.x-dx*(173+power*62),c.y-dy*(173+power*62));ctx.stroke();ctx.restore();}
+function drawCue(){
+ if(e.shotRunning||ballInHand||finished||getActive().cpu||!localTurn()||!e.cue.alive)return;
+ const ball=e.cue,front=-(R+2+power*82),back=front-208;
+ ctx.save();ctx.translate(ball.x,ball.y);ctx.rotate(aim);
+ ctx.shadowColor='#0009';ctx.shadowBlur=5;ctx.shadowOffsetY=2;
+ const wood=ctx.createLinearGradient(back,0,front,0);
+ wood.addColorStop(0,'#3b1b15');wood.addColorStop(.24,'#97592e');
+ wood.addColorStop(.58,'#d4a26a');wood.addColorStop(1,'#f4dcac');
+ ctx.fillStyle=wood;ctx.beginPath();ctx.moveTo(back,-7.3);ctx.lineTo(front-5,-2.8);
+ ctx.lineTo(front-5,2.8);ctx.lineTo(back,7.3);ctx.closePath();ctx.fill();
+ ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ ctx.fillStyle='#191f21';ctx.fillRect(back,-7.3,8,14.6);
+ ctx.fillStyle='#292229';ctx.fillRect(back+10,-6.8,59,13.6);
+ ctx.strokeStyle='#bfa375';ctx.lineWidth=1.3;
+ for(let x=back+17;x<back+68;x+=9){ctx.beginPath();ctx.moveTo(x,-6);ctx.lineTo(x+3,6);ctx.stroke();}
+ ctx.fillStyle='#e5c88f';ctx.fillRect(back+69,-5.8,3.5,11.6);
+ ctx.fillStyle='#f6f0dc';ctx.fillRect(front-5,-2.9,4.1,5.8);
+ ctx.fillStyle='#3576a8';ctx.fillRect(front-1,-3,1.8,6);
+ ctx.restore();
+}
+function rayGuide(){
+ if(e.shotRunning||ballInHand||finished||getActive().cpu||!localTurn()||!e.cue.alive)return;
+ if(aimGuide){
+  const ball=e.cue,dx=Math.cos(aim),dy=Math.sin(aim);
+  let best=1000,hit=null,ix=null,iy=null;
+  for(const b of e.balls){
+   if(!b.alive||b.id===0)continue;
+   const rx=b.x-ball.x,ry=b.y-ball.y,p=rx*dx+ry*dy,off=Math.abs(rx*dy-ry*dx);
+   if(off>=2*R||p<=0)continue;
+   const t=p-Math.sqrt(4*R*R-off*off);
+   if(t>=0&&t<best){best=t;hit=b;ix=ball.x+dx*t;iy=ball.y+dy*t}
+  }
+  const limit=hit?best:Math.max(0,Math.min(850,
+   (dx>0?LIMITS.right-R-ball.x:ball.x-(LIMITS.left+R))/Math.abs(dx||.0001),
+   (dy>0?LIMITS.bottom-R-ball.y:ball.y-(LIMITS.top+R))/Math.abs(dy||.0001)));
+  ctx.save();ctx.strokeStyle='#ecfff8b5';ctx.lineWidth=2.25;ctx.setLineDash([10,8]);
+  ctx.beginPath();ctx.moveTo(ball.x,ball.y);ctx.lineTo(ball.x+dx*limit,ball.y+dy*limit);ctx.stroke();ctx.setLineDash([]);
+  if(hit){
+   ctx.fillStyle='#fff5';ctx.strokeStyle='#fff9';ctx.beginPath();ctx.arc(ix,iy,R,0,TAU);ctx.fill();ctx.stroke();
+   const nX=(hit.x-ix)/(2*R),nY=(hit.y-iy)/(2*R);
+   ctx.strokeStyle='#e6ca8b70';ctx.lineWidth=2;ctx.beginPath();
+   ctx.moveTo(hit.x,hit.y);ctx.lineTo(hit.x+nX*48,hit.y+nY*48);ctx.stroke();
+  }
+  ctx.restore();
+ }
+ drawCue(); // Turning off the aiming guide must not hide the cue.
+}
 function ballDraw(b){const r=R;colorBall(b,r)}
 function colorBall(b,r){ctx.save();ctx.translate(b.x,b.y);ctx.shadowColor='#001b1fcc';ctx.shadowBlur=9;ctx.shadowOffsetX=2;ctx.shadowOffsetY=4;ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fillStyle='#0f1820';ctx.fill();ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
 const base=ctx.createRadialGradient(-4,-5,1,0,0,r*1.3);const color=colors[b.id];if(b.id>8){base.addColorStop(0,'#fff');base.addColorStop(.65,'#f8f5ec');base.addColorStop(1,'#a9b0af')}else{base.addColorStop(0,b.id===0?'#fff':color);base.addColorStop(.72,color);base.addColorStop(1,b.id===0?'#97a7a8':'#112c36')}ctx.fillStyle=base;ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();
@@ -676,7 +736,7 @@ return{
    // Host is authoritative: reconcile divergent physics/timing after every stroke.
    e.restore(m.balls);current=m.current;groups=m.groups;
    ballInHand=!!m.ballInHand;finished=!!m.finished;shotCount=m.shotCount;
-   buttonsFrozen=false;processed=0;shooter=null;
+   buttonsFrozen=false;processed=0;shooter=null;resetShotPower();
    if(typeof m.message==='string')textStatus(m.message.slice(0,250));
    updateUI();
   }
