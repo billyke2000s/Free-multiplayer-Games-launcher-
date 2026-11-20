@@ -17,6 +17,13 @@ assert.match(html,/function stopPull\(ev,cancel=false\)/,'pool drag-release shoo
 assert.match(html,/id="pvAimWheel"/,'pool fine aim wheel missing');
 assert.match(html,/id="pvSpin"/,'pool spin ball missing');
 assert.doesNotMatch(html,/if\(d>48\)\{shoot\(aim,power\)/,'pool must not shoot when aiming on table');
+assert.ok(html.includes('function setAimAngle(value)'),'cue drag rotation missing');
+assert.ok(html.includes('function drawCue()'),'cue shape missing');
+assert.ok(html.includes('drawCue(); // Turning off'),'guide toggle must keep physical cue visible');
+assert.ok(html.includes('function resetShotPower()'),'power reset helper missing');
+assert.ok(html.includes('function endTurn(){resetShotPower();'),'turn change must reset power');
+assert.ok(html.includes('e.shoot(angle,pwr,tip);resetShotPower();'),'CPU must reset power');
+assert.ok(html.includes('buttonsFrozen=false;processed=0;shooter=null;resetShotPower();'),'Bluetooth must clear power');
 assert.match(html,/id="arcJoystick"/,'Space Explorer joystick missing');
 assert.match(html,/edge=\(s\.spawnEdge\+\+\)%4/,'Space Explorer must spawn from four edges');
 assert.match(html,/s\.playerY\+moveY\*speed\*dt/,'Space Explorer vertical movement missing');
