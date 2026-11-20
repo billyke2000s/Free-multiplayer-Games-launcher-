@@ -1,6 +1,6 @@
 {
   "name": "aac-playroom-unified",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "private": true,
   "scripts": {
     "start": "python3 -m http.server 8080",
